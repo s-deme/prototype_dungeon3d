@@ -47,4 +47,31 @@ public class DungeonMapValidatorTests
         ArgumentException error = Assert.Throws<ArgumentException>(() => DungeonMapValidator.ValidateOrThrow(invalid));
         StringAssert.Contains("exit must be reachable", error.Message);
     }
+
+    [Test]
+    public void AlternateDungeonLayout_IsAccepted()
+    {
+        string[] alternate =
+        {
+            "#####################",
+            "#S......#.....#.....#",
+            "###...#.#.###.#.###.#",
+            "#..P#.#...#...#...#.#",
+            "#.#...#####.#####.#.#",
+            "#.#...#...#.....#.#.#",
+            "#.#####.#.#####.#.#.#",
+            "#.....#.#..P..#.#...#",
+            "###.#.#.#####.#.###.#",
+            "#...#.#.....#.#...#.#",
+            "#.#.#.#####.#.###.#.#",
+            "#.#...#C..#.#...#.#.#",
+            "#.#####.#.#.###.#.#.#",
+            "#.....#.#...#C..#.#F#",
+            "###.#.#.#######.#.#.#",
+            "#C..#.....R........>#",
+            "#####################"
+        };
+
+        Assert.DoesNotThrow(() => DungeonMapValidator.ValidateOrThrow(alternate));
+    }
 }

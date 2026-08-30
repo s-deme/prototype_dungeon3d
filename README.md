@@ -1,6 +1,6 @@
 # Arcane Depths — Unity 2D dungeon prototype
 
-`Assets/Scenes/DungeonPrototype.unity` を Unity 6000.3.22f1 で開き、Play を押すだけで遊べます。初回起動時はUnityが標準のプロジェクト設定を生成します。タイトル画面から新規開始、または保存済みの探索を再開してください。
+`Assets/Scenes/DungeonPrototype.unity` を Unity 6000.3.22f1 で開き、Play を押すだけで遊べます。タイトル画面から新規開始、または保存済みの探索を再開してください。Windows向け配布名は **Arcane Depths** です。
 
 ゲーム内の画面表示・ボタン・状態ラベルは日本語に統一しています。キー名（WASD、Enter、Esc、Fキーなど）は実際の入力に対応する表記として残しています。
 
@@ -8,6 +8,7 @@
 
 - `WASD` または矢印キー: 移動
 - 画面上の移動パッド: タップ／マウス操作で移動
+- ゲームパッド: 左スティック／十字キーで移動、A=攻撃、B=逃走、X=秘術、Y=防御、LB=薬
 - `E`: 回復薬を使用（探索中・戦闘中）
 - 戦闘: `A` / Space = 攻撃、`Q` = 秘術斬り、`G` = 防御、`R` = 逃走
 - `Esc`: ポーズ、`F1`: 操作ガイド、`F2`: 設定
@@ -25,15 +26,31 @@
 - 目的地までの次の一手を示す「導き」、地図上の経路マーカー、スキップ可能なチュートリアル
 - 決定論的なエンカウント、敵の意図表示、ターン制戦闘
 - HP、戦利品、冒険ログ、勝敗画面、ポーズ、効果音
-- UIサイズ・サウンド・導き・高コントラスト設定、狭い画面向けレイアウト
-- スコア／踏破率／永続的な勲章、誤操作を防ぐ探索破棄確認
+- 3種類の迷宮レイアウト、マップごとに変化する遭遇地点、保存可能なラン乱数、日付シードの「今日の挑戦」
+- UIサイズ・高コントラスト・導き、効果音／環境音の個別音量、全画面／ウィンドウ・解像度・垂直同期設定
+- キーボード再割り当て、ゲームパッド、44px以上を基準にしたタップ操作
+- スコア／踏破率／永続的な勲章、誤操作を防ぐ探索破棄確認、保存バックアップと復旧画面、異常終了後の再開案内
 
 ## 開発・検証
 
 迷宮データは起動時に `DungeonMapValidator` で検査されます。開始地点・3つの月の欠片・出口・到達可能性の条件を満たさない編集は、すぐに明示的なエラーになります。
 
-EditMode テストは Unity の **Window > General > Test Runner** から実行できます。`Assets/Tests/EditMode/DungeonMapValidatorTests.cs` は迷宮データの正常系と代表的な不正データを検証します。
+EditMode テストは Unity の **Window > General > Test Runner** から実行できます。迷宮データに加え、ラン乱数の保存・復元が同じ結果を続けることを検証します。
 
 ゲームロジックは `Assets/Scripts/DungeonPrototype.cs`、迷宮データの静的検証は `Assets/Scripts/DungeonMapValidator.cs` に分離しています。これらは Unity 6 向けの `ArcaneDepths.Runtime` アセンブリとしてビルドされ、EditMode テストから明示参照されます。手作業で地図を変更したときは、Play Mode と EditMode テストの両方を実行してください。
 
-可読性・コントラスト・状態表現の監査と基準は `ACCESSIBILITY_AUDIT.md` を参照してください。設定画面の「高コントラスト」は地図だけでなく、全文字、ボタン、罫線、ゲージを含む画面全体へ適用されます。
+可読性・コントラスト・状態表現の監査と基準は `ACCESSIBILITY_AUDIT.md` を参照してください。設定画面の「高コントラスト」は地図だけでなく、全文字、ボタン、罫線、ゲージを含む画面全体へ適用されます。対応する支援技術では、画面・モーダル・戦闘の状態、操作名、ヒントを読み上げられます。
+
+## Windows ビルド
+
+Unity メニューの **Arcane Depths > Build Windows x64**、または次のスクリプトを使います。
+
+```powershell
+.\scripts\build-windows.ps1 -UnityPath 'E:\game_projects\editor\6000.3.22f1\Editor\Unity.exe'
+```
+
+出力は `Builds/Windows/ArcaneDepths.exe` です。GitHub Actions はEditModeテストとWindows x64ビルドを実行します。利用前にリポジトリの `UNITY_LICENSE` Secret を設定してください。
+
+## データとライセンス
+
+保存データは端末内にのみ保存されます。詳しくは `PRIVACY.md`、コードとサードパーティに関する扱いは `LICENSE` と `THIRD_PARTY_NOTICES.md` を参照してください。

@@ -1,0 +1,53 @@
+name: Unity validation
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  editmode-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-${{ runner.os }}-${{ hashFiles('Packages/**', 'ProjectSettings/**', 'Assets/**') }}
+          restore-keys: Library-${{ runner.os }}-
+      - uses: game-ci/unity-test-runner@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        with:
+          unityVersion: 6000.3.22f1
+          testMode: editmode
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+
+  playmode-tests:
+    needs: editmode-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: game-ci/unity-test-runner@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        with:
+          unityVersion: 6000.3.22f1
+          testMode: playmode
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+
+  windows-build:
+    needs: playmode-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        with:
+          unityVersion: 6000.3.22f1
+          targetPlatform: StandaloneWindows64
+          buildName: ArcaneDepths
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ArcaneDepths-Windows-x64
+          path: build/StandaloneWindows64
