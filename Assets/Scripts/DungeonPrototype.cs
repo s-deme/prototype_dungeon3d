@@ -14,73 +14,8 @@ public class DungeonPrototype : MonoBehaviour
     private enum Difficulty { Wanderer, Adventurer, Abyssal }
     private enum Binding { MoveUp, MoveDown, MoveLeft, MoveRight, Potion, Attack, Arcane, Guard, Flee, Count, None = -1 }
 
-    // # = wall, . = corridor, S = start, C = relic cache, F = healing spring, > = exit
-    private readonly string[][] layouts =
-    {
-        new[]
-        {
-            "#####################",
-            "#S....#.......#.....#",
-            "#.###.#.#####.#.###.#",
-            "#..P#.#.....#.#...#.#",
-            "###.#.#####.#.###.#.#",
-            "#...#.....#.#.....#.#",
-            "#.#######.#.#######.#",
-            "#.....#...#.R...#...#",
-            "#####.#.#######.#.###",
-            "#...#.#.....#...#.P.#",
-            "#.#.#.#####.#.#####.#",
-            "#.#...#C..#.#.....#.#",
-            "#.#####.#.#.#####.#.#",
-            "#.....#.#...#C..#.#F#",
-            "###.#.#.#######.#.#.#",
-            "#C..#..............>#",
-            "#####################"
-        },
-        new[]
-        {
-            "#####################",
-            "#S......#.....#.....#",
-            "#####.#.#.###.#.###.#",
-            "#..P#.#...#...#...#.#",
-            "#.#.#.#####.#####.#.#",
-            "#.#...#...#.....#.#.#",
-            "#.#####.#.#####.#.#.#",
-            "#.....#.#..P..#.#...#",
-            "###.#.#.#####.#.###.#",
-            "#...#.#.....#.#...#.#",
-            "#.#.#.#####.#.###.#.#",
-            "#.#...#C..#.#...#.#.#",
-            "#.#####.#.#.###.#.#.#",
-            "#.....#.#...#C..#.#F#",
-            "###.#.#.#######.#.#.#",
-            "#C..#.....R........>#",
-            "#####################"
-        },
-        new[]
-        {
-            "#####################",
-            "#S......#.....#.....#",
-            "###...#.#.###.#.###.#",
-            "#..P#.#...#...#...#.#",
-            "#.#...#####.#####.#.#",
-            "#.#...#...#.....#.#.#",
-            "#.#####.#.#####.#.#.#",
-            "#.....#.#..P..#.#...#",
-            "###.#.#.#####.#.###.#",
-            "#...#.#.....#.#...#.#",
-            "#.#.#.#####.#.###.#.#",
-            "#.#...#C..#.#...#.#.#",
-            "#.#####.#.#.###.#.#.#",
-            "#.....#.#...#C..#.#F#",
-            "###.#.#.#######.#.#.#",
-            "#C..#.....R........>#",
-            "#####################"
-        }
-    };
-
-    private string[] layout;
-    private Vector2Int[] encounterTiles;
+    private IReadOnlyList<string> layout;
+    private IReadOnlyList<Vector2Int> encounterTiles;
     private int mapIndex;
 
     private Cell[,] dungeon;
@@ -235,13 +170,6 @@ public class DungeonPrototype : MonoBehaviour
     {
         KeyCode.W, KeyCode.S, KeyCode.A, KeyCode.D, KeyCode.E,
         KeyCode.A, KeyCode.Q, KeyCode.G, KeyCode.R
-    };
-
-    private static readonly Vector2Int[][] EncounterSets =
-    {
-        new[] { new Vector2Int(5, 5), new Vector2Int(8, 7), new Vector2Int(3, 13), new Vector2Int(16, 15) },
-        new[] { new Vector2Int(5, 5), new Vector2Int(10, 7), new Vector2Int(15, 11), new Vector2Int(17, 13) },
-        new[] { new Vector2Int(5, 5), new Vector2Int(10, 7), new Vector2Int(15, 11), new Vector2Int(17, 13) }
     };
 
     private void Awake()
@@ -556,28 +484,20 @@ public class DungeonPrototype : MonoBehaviour
 
     private void ValidateContent()
     {
-        if (layouts.Length != EncounterSets.Length) throw new InvalidOperationException("Every dungeon needs encounter data.");
-        for (int i = 0; i < layouts.Length; i++)
-        {
-            DungeonMapValidator.ValidateOrThrow(layouts[i]);
-            foreach (Vector2Int encounter in EncounterSets[i])
-            {
-                if (encounter.y < 0 || encounter.y >= layouts[i].Length || encounter.x < 0 || encounter.x >= layouts[i][0].Length || layouts[i][encounter.y][encounter.x] == '#')
-                    throw new InvalidOperationException("Encounter tiles must be walkable.");
-            }
-        }
+        DungeonContent.ValidateOrThrow();
     }
 
     private void SelectMap(int requestedIndex)
     {
-        mapIndex = Mathf.Clamp(requestedIndex, 0, layouts.Length - 1);
-        layout = layouts[mapIndex];
-        encounterTiles = EncounterSets[mapIndex];
+        mapIndex = Mathf.Clamp(requestedIndex, 0, DungeonContent.Count - 1);
+        DungeonDefinition definition = DungeonContent.Get(mapIndex);
+        layout = definition.Layout;
+        encounterTiles = definition.EncounterTiles;
     }
 
     private void BuildDungeon()
     {
-        height = layout.Length;
+        height = layout.Count;
         width = layout[0].Length;
         dungeon = new Cell[width, height];
         explored = new bool[width, height];
@@ -612,7 +532,7 @@ public class DungeonPrototype : MonoBehaviour
         dailyRun = asDaily;
         dailyRunId = dailyRun ? TodayDailyId() : 0;
         int seed = dailyRun ? DailySeed(dailyRunId) : Environment.TickCount ^ (totalRuns * 7919);
-        SelectMap(dailyRun ? (seed & int.MaxValue) % layouts.Length : (totalRuns - 1) % layouts.Length);
+        SelectMap(dailyRun ? (seed & int.MaxValue) % DungeonContent.Count : (totalRuns - 1) % DungeonContent.Count);
         BuildDungeon();
         runDifficulty = selectedDifficulty;
         player = start;
@@ -1117,7 +1037,7 @@ public class DungeonPrototype : MonoBehaviour
 
     private bool IsEncounterTile(Vector2Int p)
     {
-        for (int i = 0; i < encounterTiles.Length; i++) if (encounterTiles[i] == p) return true;
+        for (int i = 0; i < encounterTiles.Count; i++) if (encounterTiles[i] == p) return true;
         return false;
     }
 
@@ -1730,11 +1650,35 @@ public class DungeonPrototype : MonoBehaviour
     private void SaveRun()
     {
         if (mode != Mode.Exploring) return;
-        string stats = $"{player.x},{player.y},{health},{relics},{potions},{focus},{steps},{gold},{level},{experience},{enemiesDefeated},{(int)runDifficulty},{mapIndex},{rng.State},{dailyRunId}";
         BackupCurrentRun();
-        PlayerPrefs.SetString(SaveKey, stats + "|" + SerializeFlags(explored) + "|" + SerializeFlags(opened) + "|" + SerializeFlags(defeatedEncounters));
+        PlayerPrefs.SetString(SaveKey, CreateRunSnapshot().Serialize());
         PlayerPrefs.SetInt(SaveSchemaKey, CurrentSaveSchemaVersion);
         PlayerPrefs.Save();
+    }
+
+    private DungeonRunSaveData CreateRunSnapshot()
+    {
+        return new DungeonRunSaveData
+        {
+            PlayerX = player.x,
+            PlayerY = player.y,
+            Health = health,
+            Relics = relics,
+            Potions = potions,
+            Focus = focus,
+            Steps = steps,
+            Gold = gold,
+            Level = level,
+            Experience = experience,
+            EnemiesDefeated = enemiesDefeated,
+            DifficultyIndex = (int)runDifficulty,
+            MapIndex = mapIndex,
+            RandomState = rng.State,
+            DailyRunId = dailyRunId,
+            ExploredFlags = DungeonGridFlags.Serialize(explored),
+            OpenedFlags = DungeonGridFlags.Serialize(opened),
+            DefeatedEncounterFlags = DungeonGridFlags.Serialize(defeatedEncounters)
+        };
     }
 
     private bool TryLoadRun()
@@ -1765,57 +1709,39 @@ public class DungeonPrototype : MonoBehaviour
             return false;
         }
 
-        string[] segments = PlayerPrefs.GetString(key).Split('|');
-        if (segments.Length != 4)
-        {
-            failure = "保存データの形式が壊れています。";
-            return false;
-        }
-        string[] stats = segments[0].Split(',');
-        if (stats.Length != 8 && stats.Length != 10 && stats.Length != 11 && stats.Length != 12 && stats.Length != 14 && stats.Length != 15)
-        {
-            failure = "保存データの項目数が一致しません。";
-            return false;
-        }
+        if (!DungeonRunSaveData.TryDeserialize(PlayerPrefs.GetString(key), out DungeonRunSaveData snapshot, out failure)) return false;
 
-        int[] values = new int[stats.Length];
-        for (int i = 0; i < values.Length; i++)
-        {
-            if (int.TryParse(stats[i], out values[i])) continue;
-            failure = "保存データに不正な数値が含まれています。";
-            return false;
-        }
-        int savedMapIndex = stats.Length >= 14 ? Mathf.Clamp(values[12], 0, layouts.Length - 1) : 0;
+        int savedMapIndex = Mathf.Clamp(snapshot.MapIndex, 0, DungeonContent.Count - 1);
         SelectMap(savedMapIndex);
         BuildDungeon();
-        Vector2Int savedPlayer = new Vector2Int(values[0], values[1]);
+        Vector2Int savedPlayer = new Vector2Int(snapshot.PlayerX, snapshot.PlayerY);
         if (!InBounds(savedPlayer) || dungeon[savedPlayer.x, savedPlayer.y] == Cell.Wall)
         {
             failure = "保存された位置が現在の迷宮に存在しません。";
             return false;
         }
-        if (!RestoreFlags(segments[1], explored) || !RestoreFlags(segments[2], opened) || !RestoreFlags(segments[3], defeatedEncounters))
+        if (!DungeonGridFlags.TryRestore(snapshot.ExploredFlags, explored) || !DungeonGridFlags.TryRestore(snapshot.OpenedFlags, opened) || !DungeonGridFlags.TryRestore(snapshot.DefeatedEncounterFlags, defeatedEncounters))
         {
             failure = "迷宮の探索記録が壊れています。";
             return false;
         }
 
         player = savedPlayer;
-        health = Mathf.Clamp(values[2], 1, MaxHealth);
-        relics = Mathf.Clamp(values[3], 0, 3);
-        potions = Mathf.Max(0, values[4]);
-        focus = Mathf.Clamp(values[5], 0, MaxFocus);
-        steps = Mathf.Max(0, values[6]);
-        gold = Mathf.Max(0, values[7]);
-        level = stats.Length >= 10 ? Mathf.Max(1, values[8]) : 1;
-        experience = stats.Length >= 10 ? Mathf.Clamp(values[9], 0, ExperienceToNext() - 1) : 0;
-        enemiesDefeated = stats.Length >= 11 ? Mathf.Max(0, values[10]) : 0;
-        runDifficulty = stats.Length >= 12 ? (Difficulty)Mathf.Clamp(values[11], 0, 2) : Difficulty.Adventurer;
+        health = Mathf.Clamp(snapshot.Health, 1, MaxHealth);
+        relics = Mathf.Clamp(snapshot.Relics, 0, 3);
+        potions = Mathf.Max(0, snapshot.Potions);
+        focus = Mathf.Clamp(snapshot.Focus, 0, MaxFocus);
+        steps = Mathf.Max(0, snapshot.Steps);
+        gold = Mathf.Max(0, snapshot.Gold);
+        level = Mathf.Max(1, snapshot.Level);
+        experience = Mathf.Clamp(snapshot.Experience, 0, ExperienceToNext() - 1);
+        enemiesDefeated = Mathf.Max(0, snapshot.EnemiesDefeated);
+        runDifficulty = (Difficulty)Mathf.Clamp(snapshot.DifficultyIndex, 0, 2);
         selectedDifficulty = runDifficulty;
-        dailyRunId = stats.Length >= 15 ? Mathf.Max(0, values[14]) : 0;
+        dailyRunId = Mathf.Max(0, snapshot.DailyRunId);
         dailyRun = dailyRunId != 0;
         mode = Mode.Exploring;
-        rng = new RunRandom(stats.Length >= 14 ? values[13] : 2026 + steps);
+        rng = new RunRandom(snapshot.RandomState);
         eventTitle = "探索を再開";
         message = "前回の足跡から、迷宮の探索を再開した。";
         AddJournal("自動保存した探索を復元した。");
@@ -1836,29 +1762,6 @@ public class DungeonPrototype : MonoBehaviour
         PlayerPrefs.DeleteKey(SaveBackupSchemaKey);
     }
 
-    private string SerializeFlags(bool[,] flags)
-    {
-        char[] data = new char[width * height];
-        int index = 0;
-        for (int y = 0; y < height; y++) for (int x = 0; x < width; x++) data[index++] = flags[x, y] ? '1' : '0';
-        return new string(data);
-    }
-
-    private bool RestoreFlags(string data, bool[,] flags)
-    {
-        if (data.Length != width * height) return false;
-        int index = 0;
-        for (int y = 0; y < height; y++)
-        {
-            for (int x = 0; x < width; x++)
-            {
-                char value = data[index++];
-                if (value != '0' && value != '1') return false;
-                flags[x, y] = value == '1';
-            }
-        }
-        return true;
-    }
 
     private void DrawCombatOverlay(float scale)
     {
@@ -1964,7 +1867,7 @@ public class DungeonPrototype : MonoBehaviour
         GUI.Label(new Rect(box.x + 42 * s, box.y + 224 * s, box.width - 84 * s, 23 * s), veteran, labelStyle);
         GUI.Label(new Rect(box.x + 42 * s, box.y + 251 * s, box.width - 84 * s, 23 * s), swift, labelStyle);
         GUI.Label(new Rect(box.x + 42 * s, box.y + 278 * s, box.width - 84 * s, 23 * s), wayfinder, labelStyle);
-        GUI.Label(new Rect(box.x + 42 * s, box.y + 314 * s, box.width - 84 * s, 22 * s), $"迷宮踏破 {CountClearedMaps()} / {layouts.Length}", smallStyle);
+        GUI.Label(new Rect(box.x + 42 * s, box.y + 314 * s, box.width - 84 * s, 22 * s), $"迷宮踏破 {CountClearedMaps()} / {DungeonContent.Count}", smallStyle);
         if (GUI.Button(new Rect(box.x + box.width * .3f, box.yMax - 47 * s, box.width * .4f, 32 * s), "閉じる [F3]", buttonStyle)) showProfile = false;
     }
 
@@ -2292,7 +2195,7 @@ public class DungeonPrototype : MonoBehaviour
             clearedMapMask |= 1 << mapIndex;
             if (fastestClear == 0 || steps < fastestClear) fastestClear = steps;
             if (steps <= 150) UnlockAchievement(SwiftAchievement, "迅き月影");
-            int allMapsMask = (1 << layouts.Length) - 1;
+            int allMapsMask = (1 << DungeonContent.Count) - 1;
             if ((clearedMapMask & allMapsMask) == allMapsMask) UnlockAchievement(WayfinderAchievement, "深淵の道標");
         }
         bestScore = Mathf.Max(bestScore, RunScore());
@@ -2321,7 +2224,7 @@ public class DungeonPrototype : MonoBehaviour
     private int CountClearedMaps()
     {
         int count = 0;
-        for (int i = 0; i < layouts.Length; i++) if ((clearedMapMask & (1 << i)) != 0) count++;
+        for (int i = 0; i < DungeonContent.Count; i++) if ((clearedMapMask & (1 << i)) != 0) count++;
         return count;
     }
 
@@ -2358,7 +2261,7 @@ public class DungeonPrototype : MonoBehaviour
 
     private string AchievementSummary()
     {
-        return $"勲章 {AchievementCount()}/5　|　踏破迷宮 {CountClearedMaps()}/{layouts.Length}";
+        return $"勲章 {AchievementCount()}/5　|　踏破迷宮 {CountClearedMaps()}/{DungeonContent.Count}";
     }
 
     private void PlayTone(float frequency, float duration, float volume)

@@ -39,12 +39,12 @@
 | 領域 | 実装 |
 | --- | --- |
 | コンテンツ安全性 | 起動時の迷宮構造・到達可能性バリデーション |
-| 自動テスト | Unity EditMode の `DungeonMapValidatorTests`（正常系/欠片不足/到達不能出口） |
-| 保守性 | Unity依存のない `DungeonMapValidator` へデータ検証を分離し、Unity 6 向け `ArcaneDepths.Runtime` asmdef をテストから明示参照 |
+| 自動テスト | EditModeの `DungeonMapValidatorTests`、`RunRandomTests`、`DungeonContentTests`、`DungeonGridFlagsTests`、`DungeonRunSaveDataTests` と、PlayModeの `DungeonPrototypePlayModeTests` |
+| 保守性 | Unity依存のない `DungeonMapValidator`、保存形式の `DungeonRunSaveData`、探索状態の `DungeonGridFlags`、迷宮定義の `DungeonContent` へ責務を分離し、Unity 6 向け `ArcaneDepths.Runtime` asmdef をテストから明示参照 |
 | 操作可能性 | README に起動、操作、テスト、編集時の確認手順を記載 |
 | アクセシビリティ品質 | `ACCESSIBILITY_AUDIT.md` に全画面の文字・配色・状態表現の監査と維持基準を記載 |
-| 互換性 | 従来の保存形式（8/10/11/12項目）を読み込み、迷宮・乱数状態を含む14項目形式で保存 |
-| テスト拡張 | 代替迷宮と、ラン乱数の保存・復元継続をEditModeテストで検証 |
+| 互換性 | 従来の保存形式（8/10/11/12/14項目）を読み込み、日替わりrun IDを含む15項目形式で保存 |
+| テスト拡張 | 代替迷宮、grid flag、旧／現行保存形式、ラン乱数の保存・復元継続をEditModeで、scene起動と基本play flowをPlayModeで検証 |
 | 配布 | Windows x64ビルドメニュー、PowerShellビルドスクリプト、GitHub Actions、製品名・アイコン・バージョンを整備 |
 | 法務・データ | MIT License、Unityに関する第三者通知、オフライン保存を明記したプライバシー文書 |
 
@@ -55,7 +55,7 @@
 3. F2でUIサイズ、導き、高コントラストを切り替え、再起動後も残ることを確認する。
 4. Esc → 「探索を破棄」→ Esc でキャンセルでき、再度開いて破棄を確定できることを確認する。
 5. ウィンドウを狭く/縦長にして、要約パネルのガイド・設定・中断操作が使えることを確認する。
-6. Test Runner で EditMode テストを実行する。
+6. Test RunnerでEditModeとPlayModeの両方を実行する。
 7. タイトルの「新しい探索」で保存済み探索が確認画面を経由し、続きからの失敗時にバックアップ復元を選べることを確認する。
 8. F2から音量・画面設定を変更し、操作設定でキーを変更して再起動後も保持されることを確認する。
 9. Windows x64ビルドを作成し、タイトル・新規開始・再開・戦闘・勝敗・終了を確認する。

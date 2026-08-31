@@ -35,22 +35,37 @@
 
 迷宮データは起動時に `DungeonMapValidator` で検査されます。開始地点・3つの月の欠片・出口・到達可能性の条件を満たさない編集は、すぐに明示的なエラーになります。
 
-EditMode テストは Unity の **Window > General > Test Runner** から実行できます。迷宮データに加え、ラン乱数の保存・復元が同じ結果を続けることを検証します。
+EditMode／PlayModeテストは Unity の **Window > General > Test Runner** から実行できます。迷宮データ、保存形式、ラン乱数の継続、実際のscene起動と基本操作を検証します。
 
 ゲームロジックは `Assets/Scripts/DungeonPrototype.cs`、迷宮データの静的検証は `Assets/Scripts/DungeonMapValidator.cs` に分離しています。これらは Unity 6 向けの `ArcaneDepths.Runtime` アセンブリとしてビルドされ、EditMode テストから明示参照されます。手作業で地図を変更したときは、Play Mode と EditMode テストの両方を実行してください。
 
-可読性・コントラスト・状態表現の監査と基準は `ACCESSIBILITY_AUDIT.md` を参照してください。設定画面の「高コントラスト」は地図だけでなく、全文字、ボタン、罫線、ゲージを含む画面全体へ適用されます。対応する支援技術では、画面・モーダル・戦闘の状態、操作名、ヒントを読み上げられます。
+ヘッドレスで両方のテストスイートを実行する例です。リポジトリのルートで、同じプロジェクトをUnity Editorで開いていない状態から実行してください。
+
+```powershell
+$unity = '<Unity.exeへの絶対パス>'
+New-Item -ItemType Directory -Force -Path TestResults | Out-Null
+
+& $unity -batchmode -nographics -quit -projectPath (Get-Location) -runTests -testPlatform EditMode -testResults TestResults/EditMode.xml -logFile TestResults/EditMode.log
+if ($LASTEXITCODE -ne 0) { throw "EditMode tests failed: $LASTEXITCODE" }
+
+& $unity -batchmode -nographics -quit -projectPath (Get-Location) -runTests -testPlatform PlayMode -testResults TestResults/PlayMode.xml -logFile TestResults/PlayMode.log
+if ($LASTEXITCODE -ne 0) { throw "PlayMode tests failed: $LASTEXITCODE" }
+```
+
+可読性・コントラスト・状態表現の監査と基準は [`ACCESSIBILITY_AUDIT.md`](ACCESSIBILITY_AUDIT.md) を参照してください。設定画面の「高コントラスト」は地図だけでなく、全文字、ボタン、罫線、ゲージを含む画面全体へ適用されます。対応する支援技術では、画面・モーダル・戦闘の状態、操作名、ヒントを読み上げられます。
 
 ## Windows ビルド
 
 Unity メニューの **Arcane Depths > Build Windows x64**、または次のスクリプトを使います。
 
 ```powershell
-.\scripts\build-windows.ps1 -UnityPath 'E:\game_projects\editor\6000.3.22f1\Editor\Unity.exe'
+.\scripts\build-windows.ps1 -UnityPath '<Unity.exeへの絶対パス>'
 ```
 
-出力は `Builds/Windows/ArcaneDepths.exe` です。GitHub Actions はEditModeテストとWindows x64ビルドを実行します。利用前にリポジトリの `UNITY_LICENSE` Secret を設定してください。
+ローカルスクリプトの出力は `Builds/Windows/ArcaneDepths.exe` です。
+
+GitHub ActionsはEditMode、PlayMode、Windows x64ビルドの順に実行します。利用前にリポジトリの `UNITY_LICENSE` Secretを設定してください。CIビルドは `build/StandaloneWindows64/` に作られ、`ArcaneDepths-Windows-x64` というartifact名でアップロードされます。ローカルスクリプトとCIでは出力パスが異なる点に注意してください。
 
 ## データとライセンス
 
-保存データは端末内にのみ保存されます。詳しくは `PRIVACY.md`、コードとサードパーティに関する扱いは `LICENSE` と `THIRD_PARTY_NOTICES.md` を参照してください。
+ゲームコードは保存データを外部送信しません。詳しくは [`PRIVACY.md`](PRIVACY.md)、コードと第三者コンポーネントの扱いは [`LICENSE`](LICENSE) と [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) を参照してください。
