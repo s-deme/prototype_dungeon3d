@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.Accessibility;
 
 /// <summary>
-/// A self-contained, asset-free 2D dungeon-crawler prototype.
+/// A self-contained, asset-free first-person dungeon-crawler prototype.
 /// Attach this to any GameObject in an otherwise empty scene and press Play.
 /// </summary>
 public class DungeonPrototype : MonoBehaviour
@@ -24,6 +24,7 @@ public class DungeonPrototype : MonoBehaviour
     private bool[,] defeatedEncounters;
     private Vector2Int player;
     private Vector2Int start;
+    private Vector2Int facing = Vector2Int.right;
     private int width;
     private int height;
     private int health = 12;
@@ -130,8 +131,8 @@ public class DungeonPrototype : MonoBehaviour
     private GUIStyle headerStyle;
     private GUIStyle labelStyle;
     private GUIStyle smallStyle;
-    private GUIStyle centerStyle;
     private GUIStyle buttonStyle;
+    private Rect mainViewRect;
 
     // Every visible colour is defined by one theme. This prevents low-contrast one-off UI states.
     private Color ink;
@@ -290,7 +291,7 @@ public class DungeonPrototype : MonoBehaviour
                 return;
             }
 
-            string nextSnapshot = mode + "|" + showHelp + "|" + showProfile + "|" + showSettings + "|" + showControls + "|" + showTutorial + "|" + tutorialStep + "|" + showRestartConfirm + "|" + showSaveRecovery + "|" + health + "/" + MaxHealth + "|" + relics + "|" + potions + "|" + focus + "/" + MaxFocus + "|" + player.x + "," + player.y + "|" + enemyName + "|" + enemyHealth + "/" + enemyMaxHealth + "|" + enemyIntent + "|" + message + "|" + selectedDifficulty + "|" + runDifficulty + "|" + soundEnabled + "|" + musicEnabled + "|" + Mathf.RoundToInt(masterVolume * 100) + "|" + Mathf.RoundToInt(musicVolume * 100) + "|" + Mathf.RoundToInt(uiScale * 100) + "|" + guidanceEnabled + "|" + highContrast + "|" + fullscreen + "|" + resolutionIndex + "|" + vSync + "|" + Screen.width + "x" + Screen.height;
+            string nextSnapshot = mode + "|" + showHelp + "|" + showProfile + "|" + showSettings + "|" + showControls + "|" + showTutorial + "|" + tutorialStep + "|" + showRestartConfirm + "|" + showSaveRecovery + "|" + health + "/" + MaxHealth + "|" + relics + "|" + potions + "|" + focus + "/" + MaxFocus + "|" + player.x + "," + player.y + "|" + facing.x + "," + facing.y + "|" + enemyName + "|" + enemyHealth + "/" + enemyMaxHealth + "|" + enemyIntent + "|" + message + "|" + selectedDifficulty + "|" + runDifficulty + "|" + soundEnabled + "|" + musicEnabled + "|" + Mathf.RoundToInt(masterVolume * 100) + "|" + Mathf.RoundToInt(musicVolume * 100) + "|" + Mathf.RoundToInt(uiScale * 100) + "|" + guidanceEnabled + "|" + highContrast + "|" + fullscreen + "|" + resolutionIndex + "|" + vSync + "|" + Screen.width + "x" + Screen.height;
             if (nextSnapshot == accessibilitySnapshot && AssistiveSupport.activeHierarchy == accessibilityHierarchy) return;
 
             accessibilitySnapshot = nextSnapshot;
@@ -376,7 +377,7 @@ public class DungeonPrototype : MonoBehaviour
 
         if (mode == Mode.Title)
         {
-            AddAccessibilitySummary("秘術の深淵。月の欠片を3つ集めて出口を目指す二次元ダンジョン探索。" + AchievementSummary() + (previousUnexpectedExit ? "前回は通常終了しませんでした。保存済みの探索があれば続きから再開できます。" : ""));
+            AddAccessibilitySummary("秘術の深淵。月の欠片を3つ集めて出口を目指す一人称の樹海探索。" + AchievementSummary() + (previousUnexpectedExit ? "前回は通常終了しませんでした。保存済みの探索があれば続きから再開できます。" : ""));
             AddAccessibilityButton("難易度 旅人" + (selectedDifficulty == Difficulty.Wanderer ? " 選択中" : ""), "敵の攻撃が1低い難易度を選びます。", () => SetDifficulty(Difficulty.Wanderer), 0);
             AddAccessibilityButton("難易度 冒険者" + (selectedDifficulty == Difficulty.Adventurer ? " 選択中" : ""), "標準難易度を選びます。", () => SetDifficulty(Difficulty.Adventurer), 1);
             AddAccessibilityButton("難易度 深淵" + (selectedDifficulty == Difficulty.Abyssal ? " 選択中" : ""), "敵の攻撃が1高い難易度を選びます。", () => SetDifficulty(Difficulty.Abyssal), 2);
@@ -424,7 +425,7 @@ public class DungeonPrototype : MonoBehaviour
             return;
         }
 
-        AddAccessibilitySummary($"探索中。体力{health}/{MaxHealth}、集中力{focus}/{MaxFocus}、月の欠片{relics}/3、回復薬{potions}。{ObjectiveHint()}。");
+        AddAccessibilitySummary($"探索中。{DirectionName()}を向いている。体力{health}/{MaxHealth}、集中力{focus}/{MaxFocus}、月の欠片{relics}/3、回復薬{potions}。{ObjectiveHint()}。");
         AddAccessibilityButton("上へ移動", "一マス上へ移動します。", () => TryMove(Vector2Int.down), 0);
         AddAccessibilityButton("下へ移動", "一マス下へ移動します。", () => TryMove(Vector2Int.up), 1);
         AddAccessibilityButton("左へ移動", "一マス左へ移動します。", () => TryMove(Vector2Int.left), 2);
@@ -536,6 +537,7 @@ public class DungeonPrototype : MonoBehaviour
         BuildDungeon();
         runDifficulty = selectedDifficulty;
         player = start;
+        facing = Vector2Int.right;
         health = MaxHealth;
         relics = 0;
         potions = 0;
@@ -554,7 +556,7 @@ public class DungeonPrototype : MonoBehaviour
         Array.Clear(opened, 0, opened.Length);
         Array.Clear(defeatedEncounters, 0, defeatedEncounters.Length);
         RevealAroundPlayer();
-        AddJournal(dailyRun ? "日替わり迷宮への挑戦が始まった。" : "迷宮の入口 — 松明の灯りが揺れている。");
+        AddJournal(dailyRun ? "日替わり迷宮への挑戦が始まった。" : "樹海の入口 — 木漏れ日が揺れている。");
         SaveRun();
     }
 
@@ -583,23 +585,23 @@ public class DungeonPrototype : MonoBehaviour
         }
         else
         {
-            ink = new Color(0.018f, 0.03f, 0.052f, 1f);
-            panel = new Color(0.055f, 0.09f, 0.145f, 0.99f);
-            panelLine = new Color(0.35f, 0.66f, 0.83f, 1f);
-            floor = new Color(0.13f, 0.22f, 0.29f, 1f);
-            wall = new Color(0.018f, 0.037f, 0.064f, 1f);
-            unknown = new Color(0.007f, 0.014f, 0.025f, 1f);
-            wallAccent = new Color(0.23f, 0.39f, 0.50f, 1f);
-            cyan = new Color(0.44f, 0.96f, 1f, 1f);
-            amber = new Color(1f, 0.79f, 0.32f, 1f);
-            pink = new Color(1f, 0.42f, 0.60f, 1f);
-            text = new Color(0.96f, 0.98f, 1f, 1f);
-            mutedText = new Color(0.77f, 0.85f, 0.91f, 1f);
-            buttonText = new Color(0.012f, 0.039f, 0.068f, 1f);
-            disabledButton = new Color(0.22f, 0.30f, 0.38f, 1f);
-            inactiveIndicator = new Color(0.54f, 0.66f, 0.75f, 1f);
-            potionColor = new Color(0.48f, 0.74f, 1f, 1f);
-            shrineColor = new Color(0.81f, 0.65f, 1f, 1f);
+            ink = new Color(0.027f, 0.071f, 0.055f, 1f);
+            panel = new Color(0.078f, 0.149f, 0.114f, 0.99f);
+            panelLine = new Color(0.616f, 0.773f, 0.486f, 1f);
+            floor = new Color(0.224f, 0.349f, 0.278f, 1f);
+            wall = new Color(0.063f, 0.125f, 0.098f, 1f);
+            unknown = new Color(0.02f, 0.043f, 0.035f, 1f);
+            wallAccent = new Color(0.427f, 0.561f, 0.404f, 1f);
+            cyan = new Color(0.573f, 0.878f, 0.753f, 1f);
+            amber = new Color(0.941f, 0.78f, 0.459f, 1f);
+            pink = new Color(1f, 0.506f, 0.471f, 1f);
+            text = new Color(1f, 0.969f, 0.886f, 1f);
+            mutedText = new Color(0.812f, 0.851f, 0.761f, 1f);
+            buttonText = new Color(0.075f, 0.133f, 0.09f, 1f);
+            disabledButton = new Color(0.275f, 0.325f, 0.275f, 1f);
+            inactiveIndicator = new Color(0.541f, 0.592f, 0.525f, 1f);
+            potionColor = new Color(0.549f, 0.8f, 0.941f, 1f);
+            shrineColor = new Color(0.835f, 0.655f, 0.91f, 1f);
             lockedExitColor = mutedText;
         }
 
@@ -612,7 +614,6 @@ public class DungeonPrototype : MonoBehaviour
         headerStyle = MakeStyle(16, FontStyle.Bold, amber, TextAnchor.MiddleLeft);
         labelStyle = MakeStyle(15, FontStyle.Bold, text, TextAnchor.UpperLeft);
         smallStyle = MakeStyle(13, FontStyle.Bold, mutedText, TextAnchor.UpperLeft);
-        centerStyle = MakeStyle(17, FontStyle.Bold, text, TextAnchor.MiddleCenter);
         buttonStyle = MakeStyle(15, FontStyle.Bold, buttonText, TextAnchor.MiddleCenter);
         ReplaceButtonTextures();
         buttonStyle.normal.background = buttonNormalTexture;
@@ -874,11 +875,12 @@ public class DungeonPrototype : MonoBehaviour
 
     private void TryMove(Vector2Int direction)
     {
+        facing = direction;
         Vector2Int destination = player + direction;
         if (!InBounds(destination) || dungeon[destination.x, destination.y] == Cell.Wall)
         {
             eventTitle = "行き止まり";
-            message = "冷たい石壁が行く手を阻む。";
+            message = "絡み合う樹根と石壁が行く手を阻む。";
             PlayTone(120f, .055f, .10f);
             return;
         }
@@ -941,7 +943,7 @@ public class DungeonPrototype : MonoBehaviour
         {
             case Difficulty.Wanderer: return "旅人の加護により、敵の攻撃は弱まっている。";
             case Difficulty.Abyssal: return "深淵が牙を研いでいる。敵の攻撃に注意せよ。";
-            default: return "古代の迷宮に足を踏み入れた。";
+            default: return "古代の樹海迷宮に足を踏み入れた。";
         }
     }
 
@@ -1032,7 +1034,7 @@ public class DungeonPrototype : MonoBehaviour
         }
 
         eventTitle = "探索中";
-        message = "遠くで何かが石床を引きずる音がする。";
+        message = "木々の奥で、何かが下草を踏む音がする。";
     }
 
     private bool IsEncounterTile(Vector2Int p)
@@ -1045,12 +1047,12 @@ public class DungeonPrototype : MonoBehaviour
     {
         mode = Mode.Combat;
         bool stronger = relics >= 2;
-        enemyName = stronger ? "深淵の番犬" : (relics == 1 ? "石化コウモリ" : "迷い骨");
+        enemyName = stronger ? "樹海の番犬" : (relics == 1 ? "毒羽コウモリ" : "苔むす角獣");
         enemyMaxHealth = (stronger ? 11 : (relics == 1 ? 8 : 6)) + (level - 1) * 2;
         enemyHealth = enemyMaxHealth;
         enemyIntent = stronger ? "重い牙で噛み砕こうとしている" : "鋭い一撃を狙っている";
         eventTitle = "敵襲 — " + enemyName;
-        message = "影が松明の灯りを横切った。構えろ。";
+        message = "敵影が木漏れ日を横切った。構えろ。";
         AddJournal(enemyName + " が襲いかかってきた！");
         PlayTone(145f, .2f, .15f);
     }
@@ -1307,24 +1309,30 @@ public class DungeonPrototype : MonoBehaviour
     {
         CaptureRebindingInput();
         float scale = Mathf.Clamp(Screen.height / 900f, 0.72f, 1.15f) * uiScale;
-        float sideWidth = 300f * scale;
-        float margin = 24f * scale;
+        float margin = 20f * scale;
         compactLayout = Screen.width < 820f * scale || Screen.width / Mathf.Max(1f, Screen.height) < 1.08f;
+        Rect viewRect;
         Rect mapRect;
         Rect sideRect;
         if (compactLayout)
         {
-            float mapWidth = Mathf.Min(Screen.width - margin * 2f, (Screen.height - margin * 3f) * .61f * width / height);
-            mapRect = new Rect((Screen.width - mapWidth) * .5f, margin, mapWidth, mapWidth * height / width);
-            sideRect = new Rect(margin, mapRect.yMax + margin, Screen.width - margin * 2f, Mathf.Max(132f * scale, Screen.height - mapRect.yMax - margin * 2f));
+            float viewTop = margin + 20f * scale;
+            float viewHeight = Mathf.Clamp(Screen.height * .48f, 210f * scale, Screen.height - 190f * scale);
+            viewRect = new Rect(margin, viewTop, Screen.width - margin * 2f, viewHeight);
+            float mapWidth = Mathf.Min(240f * scale, viewRect.width * .4f);
+            mapRect = new Rect(viewRect.xMax - mapWidth - 12f * scale, viewRect.y + Mathf.Max(68f, 68f * scale), mapWidth, mapWidth * height / width);
+            float sideY = viewRect.yMax + margin;
+            sideRect = new Rect(margin, sideY, Screen.width - margin * 2f, Mathf.Max(140f * scale, Screen.height - sideY - margin));
         }
         else
         {
-            // mapSize is its width; calculate the height constraint using the map's aspect ratio.
-            float mapSize = Mathf.Min((Screen.height - margin * 2f) * width / height, Screen.width - sideWidth - margin * 3f);
-            mapRect = new Rect(margin, (Screen.height - mapSize) * .5f, mapSize, mapSize * height / width);
-            sideRect = new Rect(mapRect.xMax + margin, mapRect.y, sideWidth, mapRect.height);
+            float sideWidth = Mathf.Clamp(330f * scale, 260f * scale, Screen.width * .32f);
+            viewRect = new Rect(margin, margin, Screen.width - sideWidth - margin * 4f, Screen.height - margin * 2f);
+            mapRect = new Rect(viewRect.xMax + margin * 2f, margin + 28f * scale, sideWidth, sideWidth * height / width);
+            float sideY = mapRect.yMax + margin;
+            sideRect = new Rect(mapRect.x, sideY, sideWidth, Screen.height - sideY - margin);
         }
+        mainViewRect = viewRect;
 
         DrawBackground();
         GUI.enabled = !BlocksBaseInput();
@@ -1340,9 +1348,10 @@ public class DungeonPrototype : MonoBehaviour
             if (showRestartConfirm) DrawRestartConfirmOverlay(scale);
             return;
         }
+        DrawDungeonView(viewRect);
         DrawMap(mapRect);
         DrawSidePanel(sideRect, scale);
-        if (mode == Mode.Exploring) DrawTouchControls(mapRect, scale);
+        if (mode == Mode.Exploring) DrawTouchControls(viewRect, scale);
 
         GUI.enabled = true;
 
@@ -1362,7 +1371,96 @@ public class DungeonPrototype : MonoBehaviour
     private void DrawBackground()
     {
         DrawRect(new Rect(0, 0, Screen.width, Screen.height), ink);
-        DrawRect(new Rect(0, 0, Screen.width, 5), cyan);
+        DrawRect(new Rect(0, 0, Screen.width, Screen.height * .56f), Color.Lerp(wall, floor, .18f));
+        DrawRect(new Rect(0, Screen.height * .56f, Screen.width, Screen.height * .44f), Color.Lerp(ink, floor, .16f));
+        for (int i = 0; i < 13; i++)
+        {
+            float x = Screen.width * ((i * 83 + 17) % 100) / 100f;
+            float trunkWidth = Screen.width * (.008f + (i % 3) * .004f);
+            float trunkTop = Screen.height * (.08f + (i % 4) * .055f);
+            DrawRect(new Rect(x, trunkTop, trunkWidth, Screen.height - trunkTop), Color.Lerp(wall, unknown, .35f));
+            DrawRect(new Rect(x - trunkWidth * 2f, trunkTop + Screen.height * .09f, trunkWidth * 5f, trunkWidth * 1.2f), wallAccent);
+        }
+        DrawRect(new Rect(0, 0, Screen.width, Screen.height * .12f), new Color(unknown.r, unknown.g, unknown.b, .78f));
+        DrawRect(new Rect(0, 0, Screen.width, 5), amber);
+    }
+
+    private void DrawDungeonView(Rect rect)
+    {
+        DrawPanel(rect);
+        Rect view = new Rect(rect.x + 7, rect.y + 7, rect.width - 14, rect.height - 14);
+        int bands = 18;
+        for (int i = 0; i < bands; i++)
+        {
+            float t = i / (float)(bands - 1);
+            Color band = t < .58f
+                ? Color.Lerp(Color.Lerp(wall, floor, .28f), wallAccent, t * .18f)
+                : Color.Lerp(floor, ink, (t - .58f) * .82f);
+            DrawRect(new Rect(view.x, view.y + view.height * t, view.width, view.height / bands + 1), band);
+        }
+
+        int sceneOffset = player.x * 17 + player.y * 29 + mapIndex * 41;
+        for (int i = 0; i < 12; i++)
+        {
+            float x = view.x + view.width * ((i * 37 + sceneOffset) % 101) / 100f;
+            float trunkWidth = Mathf.Max(4f, view.width * (.008f + (i % 3) * .004f));
+            float top = view.y + view.height * (.09f + (i % 5) * .055f);
+            DrawRect(new Rect(x, top, trunkWidth, view.yMax - top), Color.Lerp(wall, unknown, .22f));
+            DrawRect(new Rect(x - trunkWidth * 1.7f, top + view.height * .1f, trunkWidth * 4.4f, trunkWidth), wallAccent);
+        }
+        DrawRect(new Rect(view.x, view.y, view.width, view.height * .13f), new Color(unknown.r, unknown.g, unknown.b, .74f));
+        DrawRect(new Rect(view.x, view.y + view.height * .48f, view.width, view.height * .035f), new Color(cyan.r, cyan.g, cyan.b, .12f));
+
+        Vector2Int right = new Vector2Int(-facing.y, facing.x);
+        int wallDepth = 5;
+        for (int depth = 1; depth <= 4; depth++)
+        {
+            if (IsWall(player + facing * depth))
+            {
+                wallDepth = depth;
+                break;
+            }
+        }
+
+        if (wallDepth <= 4)
+        {
+            Rect facade = PerspectiveRect(view, wallDepth);
+            DrawRect(facade, Color.Lerp(wall, unknown, wallDepth * .08f));
+            DrawRect(new Rect(facade.x, facade.y, facade.width, Mathf.Max(2f, facade.height * .025f)), wallAccent);
+            DrawRect(new Rect(facade.x, facade.yMax - Mathf.Max(2f, facade.height * .025f), facade.width, Mathf.Max(2f, facade.height * .025f)), wallAccent);
+            DrawRect(new Rect(facade.x + facade.width * .21f, facade.y, facade.width * .08f, facade.height), Color.Lerp(wallAccent, wall, .5f));
+            DrawRect(new Rect(facade.x + facade.width * .7f, facade.y, facade.width * .06f, facade.height), Color.Lerp(wallAccent, wall, .55f));
+            DrawLine(new Vector2(facade.x + facade.width * .17f, facade.yMax), new Vector2(facade.center.x, facade.y + facade.height * .42f), wallAccent, Mathf.Max(2f, facade.width * .012f));
+            DrawLine(new Vector2(facade.xMax - facade.width * .12f, facade.yMax), new Vector2(facade.center.x, facade.y + facade.height * .36f), wallAccent, Mathf.Max(2f, facade.width * .012f));
+        }
+
+        int visibleDepth = Mathf.Min(4, wallDepth - 1);
+        for (int depth = visibleDepth; depth >= 1; depth--)
+        {
+            Rect near = PerspectiveRect(view, depth - 1);
+            Rect far = PerspectiveRect(view, depth);
+            Vector2Int position = player + facing * (depth - 1);
+            Color sideWall = Color.Lerp(wall, floor, depth * .065f);
+            if (IsWall(position - right))
+                DrawQuad(new Vector2(near.xMin, near.yMin), new Vector2(near.xMin, near.yMax), new Vector2(far.xMin, far.yMin), new Vector2(far.xMin, far.yMax), sideWall);
+            if (IsWall(position + right))
+                DrawQuad(new Vector2(near.xMax, near.yMin), new Vector2(near.xMax, near.yMax), new Vector2(far.xMax, far.yMin), new Vector2(far.xMax, far.yMax), sideWall);
+
+            Color edge = new Color(panelLine.r, panelLine.g, panelLine.b, Mathf.Lerp(.8f, .32f, depth / 4f));
+            DrawLine(new Vector2(near.xMin, near.yMin), new Vector2(far.xMin, far.yMin), edge, 2f);
+            DrawLine(new Vector2(near.xMax, near.yMin), new Vector2(far.xMax, far.yMin), edge, 2f);
+            DrawLine(new Vector2(near.xMin, near.yMax), new Vector2(far.xMin, far.yMax), edge, 2f);
+            DrawLine(new Vector2(near.xMax, near.yMax), new Vector2(far.xMax, far.yMax), edge, 2f);
+            DrawLine(new Vector2(far.xMin, far.yMax), new Vector2(far.xMax, far.yMax), edge, 2f);
+        }
+
+        for (int depth = visibleDepth; depth >= 0; depth--) DrawDungeonLandmark(view, player + facing * depth, depth);
+        if (mode == Mode.Combat) DrawEnemySilhouette(view);
+
+        DrawRect(new Rect(view.x, view.y, view.width, 34), new Color(panel.r, panel.g, panel.b, .86f));
+        GUI.Label(new Rect(view.x + 12, view.y + 5, view.width * .6f, 24), $"第 {mapIndex + 1} 樹層　翠影の迷宮", MakeStyle(14, FontStyle.Bold, text, TextAnchor.MiddleLeft));
+        GUI.Label(new Rect(view.x + view.width * .62f, view.y + 5, view.width * .36f - 12, 24), $"{DirectionGlyph()}  {DirectionName()}", MakeStyle(14, FontStyle.Bold, amber, TextAnchor.MiddleRight));
+        GUI.Label(new Rect(view.x + 12, view.yMax - 29, view.width - 24, 22), mode == Mode.Combat ? "敵影を確認 — コマンドを選択" : "WASD / 矢印キーで樹海を進む", MakeStyle(12, FontStyle.Bold, mutedText, TextAnchor.MiddleRight));
     }
 
     private void DrawMap(Rect rect)
@@ -1373,7 +1471,7 @@ public class DungeonPrototype : MonoBehaviour
         {
             for (int x = 0; x < width; x++)
             {
-                Rect cellRect = new Rect(rect.x + x * cell, rect.y + y * cell, cell + 0.5f, cell + 0.5f);
+                Rect cellRect = new Rect(rect.x + x * cell, rect.y + y * cell, cell - .35f, cell - .35f);
                 bool seen = explored[x, y];
                 Cell value = dungeon[x, y];
                 Color color = !seen ? unknown : (value == Cell.Wall ? wall : floor);
@@ -1400,10 +1498,91 @@ public class DungeonPrototype : MonoBehaviour
             DrawGlyph(marker, arrow, cyan, cell * .8f);
         }
 
-        Rect hero = new Rect(rect.x + player.x * cell + cell * .2f, rect.y + player.y * cell + cell * .2f, cell * .6f, cell * .6f);
-        DrawRect(hero, pink);
-        DrawRect(new Rect(hero.x + hero.width * .25f, hero.y + hero.height * .25f, hero.width * .5f, hero.height * .5f), Color.white);
-        GUI.Label(new Rect(rect.x, rect.y - 29, rect.width, 23), guidanceEnabled ? "迷宮地図  /  矢印が導きの次の一歩" : "迷宮地図  /  訪れた場所だけが記録される", smallStyle);
+        Rect hero = new Rect(rect.x + player.x * cell, rect.y + player.y * cell, cell, cell);
+        DrawGlyph(hero, DirectionGlyph(), pink, Mathf.Max(10f, cell * .9f));
+        GUI.Label(new Rect(rect.x, rect.y - 29, rect.width, 23), guidanceEnabled ? "踏破地図  /  水色は次の一歩" : "踏破地図  /  訪れた場所を自動記録", smallStyle);
+    }
+
+    private bool IsWall(Vector2Int position) => !InBounds(position) || dungeon[position.x, position.y] == Cell.Wall;
+
+    private Rect PerspectiveRect(Rect view, int depth)
+    {
+        float size = Mathf.Pow(.62f, depth);
+        return new Rect(view.center.x - view.width * size * .5f, view.center.y - view.height * size * .5f, view.width * size, view.height * size);
+    }
+
+    private void DrawQuad(Vector2 nearStart, Vector2 nearEnd, Vector2 farStart, Vector2 farEnd, Color color)
+    {
+        const int slices = 18;
+        float thickness = Mathf.Max(2f, Vector2.Distance(nearStart, nearEnd) / slices + 1f);
+        for (int i = 0; i <= slices; i++)
+        {
+            float t = i / (float)slices;
+            DrawLine(Vector2.Lerp(nearStart, nearEnd, t), Vector2.Lerp(farStart, farEnd, t), color, thickness);
+        }
+    }
+
+    private void DrawLine(Vector2 startPoint, Vector2 endPoint, Color color, float thickness)
+    {
+        Vector2 delta = endPoint - startPoint;
+        Matrix4x4 previous = GUI.matrix;
+        GUIUtility.RotateAroundPivot(Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg, startPoint);
+        DrawRect(new Rect(startPoint.x, startPoint.y - thickness * .5f, delta.magnitude, thickness), color);
+        GUI.matrix = previous;
+    }
+
+    private void DrawDungeonLandmark(Rect view, Vector2Int position, int depth)
+    {
+        if (!InBounds(position) || dungeon[position.x, position.y] == Cell.Wall) return;
+        Cell cellValue = dungeon[position.x, position.y];
+        string glyph = null;
+        string caption = null;
+        Color color = amber;
+        if (cellValue == Cell.Chest && !opened[position.x, position.y]) { glyph = "◆"; caption = "月の小箱"; }
+        else if (cellValue == Cell.Potion && !opened[position.x, position.y]) { glyph = "●"; caption = "回復薬"; color = potionColor; }
+        else if (cellValue == Cell.Shrine && !opened[position.x, position.y]) { glyph = "✧"; caption = "星見の祠"; color = shrineColor; }
+        else if (cellValue == Cell.Fountain) { glyph = "✦"; caption = "回復の泉"; color = cyan; }
+        else if (cellValue == Cell.Stairs) { glyph = "⌄"; caption = relics >= 3 ? "地上への門" : "封印の門"; color = relics >= 3 ? cyan : lockedExitColor; }
+        if (glyph == null) return;
+
+        float perspective = Mathf.Pow(.62f, depth);
+        float size = Mathf.Min(view.width * .18f, view.height * .25f) * perspective;
+        float baseline = Mathf.Lerp(view.yMax - view.height * .15f, view.center.y + view.height * .08f, depth / 4f);
+        Rect icon = new Rect(view.center.x - size * .5f, baseline - size, size, size);
+        DrawRect(new Rect(icon.x + size * .12f, icon.yMax - size * .12f, size * .76f, size * .12f), new Color(unknown.r, unknown.g, unknown.b, .7f));
+        DrawGlyph(icon, glyph, color, Mathf.Max(12f, size * .72f));
+        if (depth <= 1) GUI.Label(new Rect(icon.x - size, icon.yMax, size * 3f, 22), caption, MakeStyle(12, FontStyle.Bold, color, TextAnchor.MiddleCenter));
+    }
+
+    private void DrawEnemySilhouette(Rect view)
+    {
+        float size = Mathf.Min(view.width, view.height) * .34f;
+        float x = view.center.x;
+        float y = view.center.y + view.height * .08f;
+        Color shadow = new Color(unknown.r, unknown.g, unknown.b, .97f);
+        DrawRect(new Rect(x - size * .23f, y - size * .45f, size * .46f, size * .42f), shadow);
+        DrawRect(new Rect(x - size * .34f, y - size * .12f, size * .68f, size * .53f), shadow);
+        DrawLine(new Vector2(x - size * .2f, y - size * .38f), new Vector2(x - size * .43f, y - size * .62f), shadow, size * .08f);
+        DrawLine(new Vector2(x + size * .2f, y - size * .38f), new Vector2(x + size * .43f, y - size * .62f), shadow, size * .08f);
+        DrawRect(new Rect(x - size * .13f, y - size * .29f, size * .08f, size * .045f), pink);
+        DrawRect(new Rect(x + size * .05f, y - size * .29f, size * .08f, size * .045f), pink);
+        DrawGlyph(new Rect(x - size * .18f, y - size * .02f, size * .36f, size * .25f), "◆", amber, size * .16f);
+    }
+
+    private string DirectionName()
+    {
+        if (facing == Vector2Int.right) return "東";
+        if (facing == Vector2Int.left) return "西";
+        if (facing == Vector2Int.down) return "北";
+        return "南";
+    }
+
+    private string DirectionGlyph()
+    {
+        if (facing == Vector2Int.right) return "→";
+        if (facing == Vector2Int.left) return "←";
+        if (facing == Vector2Int.down) return "↑";
+        return "↓";
     }
 
     private void DrawTitleScreen(float scale)
@@ -1413,8 +1592,8 @@ public class DungeonPrototype : MonoBehaviour
         Rect box = new Rect((Screen.width - w) * .5f, (Screen.height - h) * .5f, w, h);
         DrawPanel(box);
         GUI.Label(new Rect(box.x, box.y + 28 * scale, box.width, 45 * scale), "秘術の深淵", MakeStyle(36, FontStyle.Bold, cyan, TextAnchor.MiddleCenter));
-        GUI.Label(new Rect(box.x, box.y + 77 * scale, box.width, 23 * scale), "二次元ダンジョン探索", MakeStyle(14, FontStyle.Bold, amber, TextAnchor.MiddleCenter));
-        GUI.Label(new Rect(box.x + 62 * scale, box.y + 115 * scale, box.width - 124 * scale, 44 * scale), "月の欠片を3つ探し、迷宮の最深部から生還せよ。", MakeStyle(16, FontStyle.Bold, text, TextAnchor.MiddleCenter));
+        GUI.Label(new Rect(box.x, box.y + 77 * scale, box.width, 23 * scale), "一人称・樹海探索RPG", MakeStyle(14, FontStyle.Bold, amber, TextAnchor.MiddleCenter));
+        GUI.Label(new Rect(box.x + 62 * scale, box.y + 115 * scale, box.width - 124 * scale, 44 * scale), "翠影の樹海に眠る月の欠片を集め、地上へ帰還せよ。", MakeStyle(16, FontStyle.Bold, text, TextAnchor.MiddleCenter));
         if (previousUnexpectedExit) GUI.Label(new Rect(box.x + 34 * scale, box.y + 153 * scale, box.width - 68 * scale, 20 * scale), "前回は通常終了しませんでした。保存済みの探索は「続きから」で再開できます。", MakeStyle(11, FontStyle.Bold, amber, TextAnchor.MiddleCenter));
         GUI.Label(new Rect(box.x, box.y + 176 * scale, box.width, 18 * scale), "難易度を選択", headerStyle);
         float difficultyW = (box.width - 72 * scale) / 3f;
@@ -1462,7 +1641,7 @@ public class DungeonPrototype : MonoBehaviour
         GUI.Label(rect, buttonTextValue, MakeStyle(15, FontStyle.Bold, mutedText, TextAnchor.MiddleCenter));
     }
 
-    private void DrawTouchControls(Rect mapRect, float scale)
+    private void DrawTouchControls(Rect viewRect, float scale)
     {
         float button = Mathf.Max(44f, 48 * scale);
         float gap = 4 * scale;
@@ -1470,9 +1649,9 @@ public class DungeonPrototype : MonoBehaviour
         float actionWidth = Mathf.Max(70f, 76 * scale);
         float w = dpadWidth + actionWidth * 2 + 28 * scale;
         float h = button * 2 + gap + 41 * scale;
-        Rect box = new Rect(mapRect.x + 10 * scale, mapRect.yMax - h - 10 * scale, w, h);
+        Rect box = new Rect(viewRect.x + 10 * scale, viewRect.yMax - h - 10 * scale, w, h);
         DrawPanel(box);
-        GUI.Label(new Rect(box.x, box.y + 4 * scale, box.width, 18 * scale), "タップで移動", MakeStyle(10, FontStyle.Bold, cyan, TextAnchor.MiddleCenter));
+        GUI.Label(new Rect(box.x, box.y + 4 * scale, box.width, 18 * scale), $"方角 {DirectionGlyph()} {DirectionName()}　/　タップで移動", MakeStyle(10, FontStyle.Bold, cyan, TextAnchor.MiddleCenter));
         float y = box.y + 23 * scale;
         float x = box.x + 9 * scale;
         if (GUI.Button(new Rect(x + button + gap, y, button, button), "↑", buttonStyle)) TryMove(Vector2Int.down);
@@ -1491,65 +1670,78 @@ public class DungeonPrototype : MonoBehaviour
         float x = rect.x + 18 * scale;
         float widthLocal = rect.width - 36 * scale;
         float y = rect.y + 16 * scale;
-        if (compactLayout)
+        float buttonsHeight = Mathf.Max(92f, 92f * scale);
+        float buttonsTop = rect.yMax - buttonsHeight - 8f * scale;
+        if (compactLayout || rect.height < 500f * scale)
         {
-            GUI.Label(new Rect(x, y, widthLocal, 22 * scale), $"体力 {health}/{MaxHealth}　等級 {level}　◆ {relics}/3　薬 {potions}", headerStyle); y += 27 * scale;
-            GUI.Label(new Rect(x, y, widthLocal, 24 * scale), "導き: " + ObjectiveHint(), smallStyle); y += 29 * scale;
-            GUI.Label(new Rect(x, y, widthLocal, 33 * scale), eventTitle.ToUpperInvariant() + " — " + message, smallStyle);
-            float buttonY = rect.yMax - 38 * scale;
-            float buttonW = (widthLocal - 18 * scale) / 4f;
-            if (GUI.Button(new Rect(x, buttonY, buttonW, 30 * scale), "導き", buttonStyle)) FollowGuidance();
-            if (GUI.Button(new Rect(x + (buttonW + 6 * scale), buttonY, buttonW, 30 * scale), "ガイド", buttonStyle)) showHelp = true;
-            if (GUI.Button(new Rect(x + (buttonW + 6 * scale) * 2, buttonY, buttonW, 30 * scale), "設定", buttonStyle)) showSettings = true;
-            if (GUI.Button(new Rect(x + (buttonW + 6 * scale) * 3, buttonY, buttonW, 30 * scale), "中断", buttonStyle))
-            {
-                modeBeforePause = mode;
-                mode = Mode.Paused;
-            }
+            GUI.Label(new Rect(x, y, widthLocal, 22 * scale), $"第 {mapIndex + 1} 樹層　冒険者 Lv.{level}　HP {health}/{MaxHealth}　◆ {relics}/3　薬 {potions}", headerStyle); y += 25 * scale;
+            DrawMeter(new Rect(x, y, widthLocal, Mathf.Max(7f, 8f * scale)), health, MaxHealth, pink); y += 14 * scale;
+            GUI.Label(new Rect(x, y, widthLocal, 23 * scale), "導き　" + ObjectiveHint(), smallStyle); y += 27 * scale;
+            GUI.Label(new Rect(x, y, widthLocal, Mathf.Max(30f, buttonsTop - y - 4f * scale)), eventTitle + " — " + message, smallStyle);
+            DrawUtilityButtons(rect, scale);
             return;
         }
-        GUI.Label(new Rect(x, y, widthLocal, 40 * scale), "秘術の深淵", titleStyle); y += 42 * scale;
-        GUI.Label(new Rect(x, y, widthLocal, 20 * scale), "二次元ダンジョン探索", smallStyle); y += 39 * scale;
+        GUI.Label(new Rect(x, y, widthLocal, 35 * scale), "月影探索隊", titleStyle); y += 36 * scale;
+        GUI.Label(new Rect(x, y, widthLocal, 20 * scale), $"第 {mapIndex + 1} 樹層　翠影の迷宮　/　{DirectionName()}向き", smallStyle); y += 29 * scale;
         DrawDivider(x, y, widthLocal); y += 14 * scale;
-        GUI.Label(new Rect(x, y, widthLocal, 22 * scale), "冒険者", headerStyle); y += 26 * scale;
-        GUI.Label(new Rect(x, y, widthLocal, 20 * scale), $"体力   {HealthBar()}  {health}/{MaxHealth}", labelStyle); y += 28 * scale;
-        GUI.Label(new Rect(x, y, widthLocal, 20 * scale), $"レベル {level}   経験値 {experience}/{ExperienceToNext()}", labelStyle); y += 24 * scale;
-        GUI.Label(new Rect(x, y, widthLocal, 20 * scale), $"月の欠片   {relics} / 3", labelStyle); y += 24 * scale;
-        GUI.Label(new Rect(x, y, widthLocal, 20 * scale), $"集中力   {FocusBar()}  {focus}/{MaxFocus}", labelStyle); y += 24 * scale;
-        GUI.Label(new Rect(x, y, widthLocal, 20 * scale), $"回復薬   {potions} 本   [E]で使用", labelStyle); y += 24 * scale;
-        GUI.Label(new Rect(x, y, widthLocal, 20 * scale), $"所持金　{gold}　　歩数 {steps}", labelStyle); y += 24 * scale;
-        GUI.Label(new Rect(x, y, widthLocal, 18 * scale), $"難易度   {DifficultyName(runDifficulty)}", smallStyle); y += 28 * scale;
-        GUI.Label(new Rect(x, y, widthLocal, 20 * scale), "導き", headerStyle); y += 21 * scale;
-        GUI.Label(new Rect(x, y, widthLocal, 30 * scale), ObjectiveHint(), smallStyle); y += 36 * scale;
+        GUI.Label(new Rect(x, y, widthLocal, 22 * scale), $"冒険者　Lv.{level}", headerStyle); y += 25 * scale;
+        GUI.Label(new Rect(x, y, 52 * scale, 18 * scale), "HP", smallStyle);
+        DrawMeter(new Rect(x + 44 * scale, y + 4 * scale, widthLocal - 92 * scale, 10 * scale), health, MaxHealth, pink);
+        GUI.Label(new Rect(x + widthLocal - 45 * scale, y, 45 * scale, 18 * scale), $"{health}/{MaxHealth}", MakeStyle(11, FontStyle.Bold, text, TextAnchor.MiddleRight)); y += 22 * scale;
+        GUI.Label(new Rect(x, y, 52 * scale, 18 * scale), "TP", smallStyle);
+        DrawMeter(new Rect(x + 44 * scale, y + 4 * scale, widthLocal - 92 * scale, 10 * scale), focus, MaxFocus, cyan);
+        GUI.Label(new Rect(x + widthLocal - 45 * scale, y, 45 * scale, 18 * scale), $"{focus}/{MaxFocus}", MakeStyle(11, FontStyle.Bold, text, TextAnchor.MiddleRight)); y += 25 * scale;
+        GUI.Label(new Rect(x, y, widthLocal, 20 * scale), $"経験値 {experience}/{ExperienceToNext()}　　月の欠片 ◆ {relics}/3", labelStyle); y += 22 * scale;
+        GUI.Label(new Rect(x, y, widthLocal, 20 * scale), $"回復薬 {potions}　　所持金 {gold}　　歩数 {steps}", labelStyle); y += 22 * scale;
+        GUI.Label(new Rect(x, y, widthLocal, 18 * scale), $"難易度　{DifficultyName(runDifficulty)}", smallStyle); y += 25 * scale;
         DrawDivider(x, y, widthLocal); y += 14 * scale;
-        GUI.Label(new Rect(x, y, widthLocal, 20 * scale), eventTitle.ToUpperInvariant(), headerStyle); y += 25 * scale;
-        GUI.Label(new Rect(x, y, widthLocal, 75 * scale), message, labelStyle); y += 84 * scale;
-        DrawDivider(x, y, widthLocal); y += 14 * scale;
-        GUI.Label(new Rect(x, y, widthLocal, 20 * scale), "冒険の記録", headerStyle); y += 24 * scale;
-        foreach (string entry in journal)
+        GUI.Label(new Rect(x, y, widthLocal, 20 * scale), "次の目的", headerStyle); y += 22 * scale;
+        GUI.Label(new Rect(x, y, widthLocal, 32 * scale), ObjectiveHint(), smallStyle); y += 36 * scale;
+        GUI.Label(new Rect(x, y, widthLocal, 20 * scale), eventTitle, headerStyle); y += 22 * scale;
+        float messageHeight = Mathf.Min(54 * scale, Mathf.Max(28f, buttonsTop - y - 5f * scale));
+        GUI.Label(new Rect(x, y, widthLocal, messageHeight), message, labelStyle); y += messageHeight + 8 * scale;
+        if (buttonsTop - y > 65 * scale)
         {
-            GUI.Label(new Rect(x, y, widthLocal, 33 * scale), "› " + entry, smallStyle);
-            y += 34 * scale;
+            DrawDivider(x, y, widthLocal); y += 10 * scale;
+            GUI.Label(new Rect(x, y, widthLocal, 18 * scale), "冒険の記録", headerStyle); y += 20 * scale;
+            foreach (string entry in journal)
+            {
+                if (y + 24 * scale > buttonsTop) break;
+                GUI.Label(new Rect(x, y, widthLocal, 23 * scale), "› " + entry, smallStyle);
+                y += 24 * scale;
+            }
         }
+        DrawUtilityButtons(rect, scale);
+    }
 
-        float controlY = rect.yMax - 117 * scale;
-        DrawDivider(x, controlY - 10 * scale, widthLocal);
-        GUI.Label(new Rect(x, controlY, widthLocal, 20 * scale), mode == Mode.Exploring ? "移動  WASD / 矢印キー" : "戦闘中", headerStyle);
-        if (mode == Mode.Exploring)
+    private void DrawUtilityButtons(Rect rect, float scale)
+    {
+        float gap = 4f * scale;
+        float x = rect.x + 10f * scale;
+        float widthLocal = rect.width - 20f * scale;
+        float height = Mathf.Max(92f, 92f * scale);
+        float y = rect.yMax - height - 8f * scale;
+        float buttonWidth = (widthLocal - gap * 2f) / 3f;
+        float buttonHeight = (height - gap) * .5f;
+        if (GUI.Button(new Rect(x, y, buttonWidth, buttonHeight), "薬 [E]", buttonStyle)) UsePotion();
+        if (GUI.Button(new Rect(x + buttonWidth + gap, y, buttonWidth, buttonHeight), "導き", buttonStyle)) FollowGuidance();
+        if (GUI.Button(new Rect(x + (buttonWidth + gap) * 2f, y, buttonWidth, buttonHeight), "手引", buttonStyle)) showHelp = true;
+        y += buttonHeight + gap;
+        if (GUI.Button(new Rect(x, y, buttonWidth, buttonHeight), "設定", buttonStyle)) showSettings = true;
+        if (GUI.Button(new Rect(x + buttonWidth + gap, y, buttonWidth, buttonHeight), "記録", buttonStyle)) showProfile = true;
+        if (GUI.Button(new Rect(x + (buttonWidth + gap) * 2f, y, buttonWidth, buttonHeight), "中断", buttonStyle))
         {
-            GUI.Label(new Rect(x, controlY + 25 * scale, widthLocal, 55 * scale), "◆ 月の欠片を3つ集めて出口へ\n● 薬瓶を拾い、Eで体力を回復\nEsc: ポーズ　F1: ガイド　F2: 設定　F3: 記録", smallStyle);
+            modeBeforePause = mode;
+            mode = Mode.Paused;
         }
     }
 
-    private string HealthBar()
+    private void DrawMeter(Rect rect, float current, float maximum, Color fillColor)
     {
-        int filled = Mathf.CeilToInt(health / (float)MaxHealth * 8);
-        return "<color=#" + ColorUtility.ToHtmlStringRGB(pink) + ">" + new string('■', filled) + "</color><color=#" + ColorUtility.ToHtmlStringRGB(inactiveIndicator) + ">" + new string('■', 8 - filled) + "</color>";
-    }
-
-    private string FocusBar()
-    {
-        return "<color=#" + ColorUtility.ToHtmlStringRGB(cyan) + ">" + new string('◆', focus) + "</color><color=#" + ColorUtility.ToHtmlStringRGB(inactiveIndicator) + ">" + new string('◇', MaxFocus - focus) + "</color>";
+        DrawRect(rect, inactiveIndicator);
+        DrawRect(new Rect(rect.x, rect.y, rect.width * Mathf.Clamp01(current / maximum), rect.height), fillColor);
+        DrawRect(new Rect(rect.x, rect.y, rect.width, 1), panelLine);
+        DrawRect(new Rect(rect.x, rect.yMax - 1, rect.width, 1), panelLine);
     }
 
     private int ExperienceToNext() => 16 + level * 9;
@@ -1727,6 +1919,7 @@ public class DungeonPrototype : MonoBehaviour
         }
 
         player = savedPlayer;
+        facing = Vector2Int.right;
         health = Mathf.Clamp(snapshot.Health, 1, MaxHealth);
         relics = Mathf.Clamp(snapshot.Relics, 0, 3);
         potions = Mathf.Max(0, snapshot.Potions);
@@ -1765,23 +1958,26 @@ public class DungeonPrototype : MonoBehaviour
 
     private void DrawCombatOverlay(float scale)
     {
-        DrawRect(new Rect(0, 0, Screen.width, Screen.height), new Color(0, 0, 0.02f, 0.74f));
-        float w = Mathf.Min(550 * scale, Screen.width - 40);
-        float h = 325 * scale;
-        Rect box = new Rect((Screen.width - w) * .5f, (Screen.height - h) * .5f, w, h);
+        DrawRect(new Rect(mainViewRect.x + 7, mainViewRect.y + 7, mainViewRect.width - 14, mainViewRect.height - 14), new Color(0, 0, 0.02f, 0.16f));
+        float w = mainViewRect.width - 24f * scale;
+        float h = Mathf.Min(Mathf.Max(174f, 200f * scale), mainViewRect.height * .62f);
+        Rect box = new Rect(mainViewRect.x + 12f * scale, mainViewRect.yMax - h - 12f * scale, w, h);
         DrawPanel(box);
-        GUI.Label(new Rect(box.x, box.y + 20 * scale, box.width, 34 * scale), "戦闘開始", centerStyle);
-        GUI.Label(new Rect(box.x, box.y + 61 * scale, box.width, 30 * scale), enemyName, MakeStyle(23, FontStyle.Bold, pink, TextAnchor.MiddleCenter));
-        GUI.Label(new Rect(box.x, box.y + 98 * scale, box.width, 24 * scale), $"敵の体力  {enemyHealth} / {enemyMaxHealth}　　集中力 {focus}/{MaxFocus}", MakeStyle(16, FontStyle.Bold, text, TextAnchor.MiddleCenter));
-        GUI.Label(new Rect(box.x + 30 * scale, box.y + 126 * scale, box.width - 60 * scale, 23 * scale), "敵の気配: " + enemyIntent, MakeStyle(13, FontStyle.Bold, amber, TextAnchor.MiddleCenter));
-        GUI.Label(new Rect(box.x + 30 * scale, box.y + 151 * scale, box.width - 60 * scale, 38 * scale), message, MakeStyle(14, FontStyle.Bold, mutedText, TextAnchor.MiddleCenter));
-        float buttonY = box.yMax - 67 * scale;
-        float bw = (box.width - 120 * scale) / 5f;
-        if (GUI.Button(new Rect(box.x + 20 * scale, buttonY, bw, 38 * scale), "攻撃 [A]", buttonStyle)) Attack();
-        if (GUI.Button(new Rect(box.x + 40 * scale + bw, buttonY, bw, 38 * scale), "秘術 [Q]", buttonStyle)) ArcaneStrike();
-        if (GUI.Button(new Rect(box.x + 60 * scale + bw * 2, buttonY, bw, 38 * scale), "防御 [G]", buttonStyle)) Guard();
-        if (GUI.Button(new Rect(box.x + 80 * scale + bw * 3, buttonY, bw, 38 * scale), "薬 [E]", buttonStyle)) UsePotion(true);
-        if (GUI.Button(new Rect(box.x + 100 * scale + bw * 4, buttonY, bw, 38 * scale), "逃走 [R]", buttonStyle)) TryFlee();
+        float pad = 16f * scale;
+        GUI.Label(new Rect(box.x + pad, box.y + 10f * scale, box.width * .55f, 28f * scale), enemyName, MakeStyle(20, FontStyle.Bold, pink, TextAnchor.MiddleLeft));
+        GUI.Label(new Rect(box.x + box.width * .58f, box.y + 10f * scale, box.width * .38f - pad, 28f * scale), $"ENEMY HP  {enemyHealth}/{enemyMaxHealth}", MakeStyle(12, FontStyle.Bold, text, TextAnchor.MiddleRight));
+        DrawMeter(new Rect(box.x + pad, box.y + 40f * scale, box.width - pad * 2f, Mathf.Max(8f, 10f * scale)), enemyHealth, enemyMaxHealth, pink);
+        GUI.Label(new Rect(box.x + pad, box.y + 56f * scale, box.width - pad * 2f, 22f * scale), "敵の気配　" + enemyIntent, MakeStyle(12, FontStyle.Bold, amber, TextAnchor.MiddleLeft));
+        GUI.Label(new Rect(box.x + pad, box.y + 78f * scale, box.width - pad * 2f, 31f * scale), message, MakeStyle(13, FontStyle.Bold, mutedText, TextAnchor.MiddleLeft));
+        float buttonHeight = Mathf.Max(44f, 38f * scale);
+        float buttonY = box.yMax - buttonHeight - 12f * scale;
+        float gap = 5f * scale;
+        float bw = (box.width - pad * 2f - gap * 4f) / 5f;
+        if (GUI.Button(new Rect(box.x + pad, buttonY, bw, buttonHeight), "攻撃 [A]", buttonStyle)) Attack();
+        if (GUI.Button(new Rect(box.x + pad + (bw + gap), buttonY, bw, buttonHeight), "秘術 [Q]", buttonStyle)) ArcaneStrike();
+        if (GUI.Button(new Rect(box.x + pad + (bw + gap) * 2f, buttonY, bw, buttonHeight), "防御 [G]", buttonStyle)) Guard();
+        if (GUI.Button(new Rect(box.x + pad + (bw + gap) * 3f, buttonY, bw, buttonHeight), "薬 [E]", buttonStyle)) UsePotion(true);
+        if (GUI.Button(new Rect(box.x + pad + (bw + gap) * 4f, buttonY, bw, buttonHeight), "逃走 [R]", buttonStyle)) TryFlee();
     }
 
     private void DrawShrineOverlay(float scale)
@@ -1838,7 +2034,7 @@ public class DungeonPrototype : MonoBehaviour
         Rect box = new Rect((Screen.width - w) * .5f, Screen.height * .22f, w, 330 * scale);
         DrawPanel(box);
         GUI.Label(new Rect(box.x, box.y + 22 * scale, box.width, 34 * scale), "冒険者の手引き", MakeStyle(22, FontStyle.Bold, cyan, TextAnchor.MiddleCenter));
-        string guide = "探索　WASD / 矢印キー / 画面パッドで1マス移動\n導き　画面の「導き」で目的地へ1マス進む（設定で非表示可）\n目的　金色の◆（月の欠片）を3つ回収して出口へ\n回復　水色の✦は全回復、青い●は回復薬（Eで使用）\n祠　　紫の✧では3つの祝福から1つを選べる\n戦闘　A / スペース: 攻撃　Q: 秘術　E: 薬　G: 防御　R: 逃走\n　　　通常攻撃で集中力を溜め、秘術斬りに使う\n中断　Esc: ポーズ　F1: ガイド　F2: 設定　F3: 記録";
+        string guide = "探索　左の樹海を見ながら、WASD / 矢印キー / 画面パッドで1マス移動\n地図　右の踏破地図に現在地・向き・訪れた通路を自動記録\n導き　画面の「導き」で目的地へ1マス進む（設定で非表示可）\n目的　金色の◆（月の欠片）を3つ回収して出口へ\n回復　水色の✦は全回復、青い●は回復薬（Eで使用）\n祠　　紫の✧では3つの祝福から1つを選べる\n戦闘　A / スペース: 攻撃　Q: 秘術　E: 薬　G: 防御　R: 逃走\n中断　Esc: ポーズ　F1: ガイド　F2: 設定　F3: 記録";
         GUI.Label(new Rect(box.x + 38 * scale, box.y + 75 * scale, box.width - 76 * scale, 170 * scale), guide, MakeStyle(15, FontStyle.Bold, text, TextAnchor.UpperLeft));
         if (GUI.Button(new Rect(box.x + box.width * .3f, box.yMax - 51 * scale, box.width * .4f, 32 * scale), "閉じる [F1]", buttonStyle)) showHelp = false;
     }
@@ -2085,7 +2281,7 @@ public class DungeonPrototype : MonoBehaviour
         if (tutorialStep == 0)
         {
             heading = "1 / 3　迷宮を歩く";
-            body = "WASD、矢印キー、または画面上の矢印で移動します。\n地図は一度訪れた場所だけを記録します。\n壁にぶつかってもダメージは受けません。";
+            body = "WASD、矢印キー、または画面上の矢印で移動します。\n樹海の景色は進もうとした方角を向き、地図は訪れた場所を記録します。\n壁にぶつかってもダメージは受けません。";
         }
         else if (tutorialStep == 1)
         {

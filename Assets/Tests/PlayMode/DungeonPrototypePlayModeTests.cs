@@ -73,6 +73,12 @@ public class DungeonPrototypePlayModeTests
 
         Assert.That(GetPrivateField(prototype, "mode").ToString(), Is.EqualTo("Exploring"));
         Assert.That((bool)GetPrivateField(prototype, "showTutorial"), Is.True);
+        Assert.That((Vector2Int)GetPrivateField(prototype, "facing"), Is.EqualTo(Vector2Int.right));
+
+        Vector2Int initialPosition = (Vector2Int)GetPrivateField(prototype, "player");
+        InvokePrivate(prototype, "TryMove", Vector2Int.right);
+        Assert.That((Vector2Int)GetPrivateField(prototype, "player"), Is.EqualTo(initialPosition + Vector2Int.right));
+        Assert.That((Vector2Int)GetPrivateField(prototype, "facing"), Is.EqualTo(Vector2Int.right));
     }
 
     [Test]
@@ -94,11 +100,11 @@ public class DungeonPrototypePlayModeTests
         return field.GetValue(target);
     }
 
-    private static void InvokePrivate(object target, string name)
+    private static void InvokePrivate(object target, string name, params object[] arguments)
     {
         MethodInfo method = target.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.That(method, Is.Not.Null, "Missing private method: " + name);
-        method.Invoke(target, null);
+        method.Invoke(target, arguments);
     }
 
     private static object InvokePrivateStatic(System.Type type, string name, params object[] arguments)
