@@ -7,6 +7,11 @@ using System.Collections.Generic;
 /// </summary>
 public static class DungeonMapValidator
 {
+    private static readonly (int x, int y)[] CardinalSteps =
+    {
+        (0, -1), (1, 0), (0, 1), (-1, 0)
+    };
+
     public static void ValidateOrThrow(IReadOnlyList<string> rows)
     {
         if (rows == null || rows.Count == 0) throw new ArgumentException("A dungeon needs at least one row.", nameof(rows));
@@ -56,16 +61,13 @@ public static class DungeonMapValidator
         HashSet<(int x, int y)> visited = new HashSet<(int x, int y)>();
         frontier.Enqueue(from);
         visited.Add(from);
-        int[] dx = { 0, 1, 0, -1 };
-        int[] dy = { -1, 0, 1, 0 };
-
         while (frontier.Count > 0)
         {
             (int x, int y) current = frontier.Dequeue();
-            for (int i = 0; i < 4; i++)
+            foreach ((int x, int y) step in CardinalSteps)
             {
-                int nextX = current.x + dx[i];
-                int nextY = current.y + dy[i];
+                int nextX = current.x + step.x;
+                int nextY = current.y + step.y;
                 if (nextY < 0 || nextY >= rows.Count || nextX < 0 || nextX >= rows[0].Length || rows[nextY][nextX] == '#') continue;
                 if (visited.Add((nextX, nextY))) frontier.Enqueue((nextX, nextY));
             }
