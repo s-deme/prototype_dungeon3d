@@ -37,19 +37,20 @@ public static class DungeonMapValidator
         if (starts != 1) throw new ArgumentException("A dungeon must contain exactly one start tile.", nameof(rows));
         if (chests != 3) throw new ArgumentException("A dungeon must contain exactly three relic chests.", nameof(rows));
         if (exits != 1) throw new ArgumentException("A dungeon must contain exactly one exit.", nameof(rows));
-        if (!CanReach(rows, start, exit)) throw new ArgumentException("The exit must be reachable from the start.", nameof(rows));
+        HashSet<(int x, int y)> reachable = FindReachable(rows, start);
+        if (!reachable.Contains(exit)) throw new ArgumentException("The exit must be reachable from the start.", nameof(rows));
 
         for (int y = 0; y < rows.Count; y++)
         {
             for (int x = 0; x < width; x++)
             {
-                if (rows[y][x] == 'C' && !CanReach(rows, start, (x, y)))
+                if (rows[y][x] == 'C' && !reachable.Contains((x, y)))
                     throw new ArgumentException("Every relic chest must be reachable from the start.", nameof(rows));
             }
         }
     }
 
-    private static bool CanReach(IReadOnlyList<string> rows, (int x, int y) from, (int x, int y) target)
+    private static HashSet<(int x, int y)> FindReachable(IReadOnlyList<string> rows, (int x, int y) from)
     {
         Queue<(int x, int y)> frontier = new Queue<(int x, int y)>();
         HashSet<(int x, int y)> visited = new HashSet<(int x, int y)>();
@@ -61,7 +62,6 @@ public static class DungeonMapValidator
         while (frontier.Count > 0)
         {
             (int x, int y) current = frontier.Dequeue();
-            if (current == target) return true;
             for (int i = 0; i < 4; i++)
             {
                 int nextX = current.x + dx[i];
@@ -70,6 +70,6 @@ public static class DungeonMapValidator
                 if (visited.Add((nextX, nextY))) frontier.Enqueue((nextX, nextY));
             }
         }
-        return false;
+        return visited;
     }
 }

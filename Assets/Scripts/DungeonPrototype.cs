@@ -132,6 +132,7 @@ public class DungeonPrototype : MonoBehaviour
     private GUIStyle labelStyle;
     private GUIStyle smallStyle;
     private GUIStyle buttonStyle;
+    private bool stylesDirty = true;
     private Rect mainViewRect;
 
     // Every visible colour is defined by one theme. This prevents low-contrast one-off UI states.
@@ -171,6 +172,11 @@ public class DungeonPrototype : MonoBehaviour
     {
         KeyCode.W, KeyCode.S, KeyCode.A, KeyCode.D, KeyCode.E,
         KeyCode.A, KeyCode.Q, KeyCode.G, KeyCode.R
+    };
+
+    private static readonly Vector2Int[] CardinalDirections =
+    {
+        Vector2Int.up, Vector2Int.right, Vector2Int.down, Vector2Int.left
     };
 
     private void Awake()
@@ -222,6 +228,12 @@ public class DungeonPrototype : MonoBehaviour
         Screen.SetResolution(resolution.x, resolution.y, fullscreen ? FullScreenMode.FullScreenWindow : FullScreenMode.Windowed);
     }
 
+    private void ApplyAndSaveDisplaySettings()
+    {
+        ApplyDisplaySettings();
+        SaveSettings();
+    }
+
     private void UpdateAudioMix()
     {
         if (audioSource != null) audioSource.volume = masterVolume;
@@ -268,9 +280,7 @@ public class DungeonPrototype : MonoBehaviour
             }
         }
         if (pixel != null) Destroy(pixel);
-        if (buttonNormalTexture != null) Destroy(buttonNormalTexture);
-        if (buttonHoverTexture != null) Destroy(buttonHoverTexture);
-        if (buttonActiveTexture != null) Destroy(buttonActiveTexture);
+        DestroyButtonTextures();
         if (musicLoop != null) Destroy(musicLoop);
     }
 
@@ -360,9 +370,9 @@ public class DungeonPrototype : MonoBehaviour
             AddAccessibilityButton("表示サイズを大きくする。現在 " + Mathf.RoundToInt(uiScale * 100) + "%", "表示サイズを10%大きくします。", () => ChangeUiScale(.1f), 7);
             AddAccessibilityButton("地図の導き " + (guidanceEnabled ? "有効" : "無効"), "次の目的地を示す導きを切り替えます。", () => { guidanceEnabled = !guidanceEnabled; SaveSettings(); }, 8);
             AddAccessibilityButton("高コントラスト " + (highContrast ? "有効" : "無効"), "高コントラスト表示を切り替えます。", () => { highContrast = !highContrast; ApplyTheme(); SaveSettings(); }, 9);
-            AddAccessibilityButton("画面モード " + (fullscreen ? "全画面" : "ウィンドウ"), "全画面とウィンドウを切り替えます。", () => { fullscreen = !fullscreen; ApplyDisplaySettings(); SaveSettings(); }, 10);
-            AddAccessibilityButton("解像度 " + DisplayResolutions[resolutionIndex].x + " × " + DisplayResolutions[resolutionIndex].y, "次の解像度へ変更します。", () => { resolutionIndex = (resolutionIndex + 1) % DisplayResolutions.Length; ApplyDisplaySettings(); SaveSettings(); }, 11);
-            AddAccessibilityButton("垂直同期 " + (vSync ? "有効" : "無効"), "垂直同期を切り替えます。", () => { vSync = !vSync; ApplyDisplaySettings(); SaveSettings(); }, 12);
+            AddAccessibilityButton("画面モード " + (fullscreen ? "全画面" : "ウィンドウ"), "全画面とウィンドウを切り替えます。", () => { fullscreen = !fullscreen; ApplyAndSaveDisplaySettings(); }, 10);
+            AddAccessibilityButton("解像度 " + DisplayResolutions[resolutionIndex].x + " × " + DisplayResolutions[resolutionIndex].y, "次の解像度へ変更します。", () => { resolutionIndex = (resolutionIndex + 1) % DisplayResolutions.Length; ApplyAndSaveDisplaySettings(); }, 11);
+            AddAccessibilityButton("垂直同期 " + (vSync ? "有効" : "無効"), "垂直同期を切り替えます。", () => { vSync = !vSync; ApplyAndSaveDisplaySettings(); }, 12);
             AddAccessibilityButton("操作設定", "キーの割り当てを変更します。", () => { showSettings = false; showControls = true; }, 13);
             AddAccessibilityButton("設定を閉じる", "前の画面へ戻ります。", () => showSettings = false, 14);
             return;
@@ -552,9 +562,6 @@ public class DungeonPrototype : MonoBehaviour
         eventTitle = "探索開始";
         journal.Clear();
         rng = new RunRandom(seed);
-        Array.Clear(explored, 0, explored.Length);
-        Array.Clear(opened, 0, opened.Length);
-        Array.Clear(defeatedEncounters, 0, defeatedEncounters.Length);
         RevealAroundPlayer();
         AddJournal(dailyRun ? "日替わり迷宮への挑戦が始まった。" : "樹海の入口 — 木漏れ日が揺れている。");
         SaveRun();
@@ -605,7 +612,7 @@ public class DungeonPrototype : MonoBehaviour
             lockedExitColor = mutedText;
         }
 
-        CreateStyles();
+        stylesDirty = true;
     }
 
     private void CreateStyles()
@@ -626,11 +633,16 @@ public class DungeonPrototype : MonoBehaviour
         buttonStyle.padding = new RectOffset(8, 8, 5, 5);
     }
 
-    private void ReplaceButtonTextures()
+    private void DestroyButtonTextures()
     {
         if (buttonNormalTexture != null) Destroy(buttonNormalTexture);
         if (buttonHoverTexture != null) Destroy(buttonHoverTexture);
         if (buttonActiveTexture != null) Destroy(buttonActiveTexture);
+    }
+
+    private void ReplaceButtonTextures()
+    {
+        DestroyButtonTextures();
         buttonNormalTexture = MakeTexture(amber);
         buttonHoverTexture = MakeTexture(cyan);
         buttonActiveTexture = MakeTexture(pink);
@@ -877,7 +889,7 @@ public class DungeonPrototype : MonoBehaviour
     {
         facing = direction;
         Vector2Int destination = player + direction;
-        if (!InBounds(destination) || dungeon[destination.x, destination.y] == Cell.Wall)
+        if (IsWall(destination))
         {
             eventTitle = "行き止まり";
             message = "絡み合う樹根と石壁が行く手を阻む。";
@@ -895,30 +907,21 @@ public class DungeonPrototype : MonoBehaviour
         if (mode == Mode.Exploring) SaveRun();
     }
 
-    private void StartNewRun()
+    private void StartNewRun() => StartRun(false);
+
+    private void StartDailyRun() => StartRun(true);
+
+    private void StartRun(bool asDaily)
     {
         if (PlayerPrefs.HasKey(SaveKey))
         {
             restartFromTitle = true;
-            restartAsDaily = false;
+            restartAsDaily = asDaily;
             showRestartConfirm = true;
             return;
         }
 
-        BeginNewRun(false, false);
-    }
-
-    private void StartDailyRun()
-    {
-        if (PlayerPrefs.HasKey(SaveKey))
-        {
-            restartFromTitle = true;
-            restartAsDaily = true;
-            showRestartConfirm = true;
-            return;
-        }
-
-        BeginNewRun(false, true);
+        BeginNewRun(false, asDaily);
     }
 
     private void ContinueRun()
@@ -1307,6 +1310,11 @@ public class DungeonPrototype : MonoBehaviour
 
     private void OnGUI()
     {
+        if (stylesDirty)
+        {
+            CreateStyles();
+            stylesDirty = false;
+        }
         CaptureRebindingInput();
         float scale = Mathf.Clamp(Screen.height / 900f, 0.72f, 1.15f) * uiScale;
         float margin = 20f * scale;
@@ -1740,8 +1748,8 @@ public class DungeonPrototype : MonoBehaviour
     {
         DrawRect(rect, inactiveIndicator);
         DrawRect(new Rect(rect.x, rect.y, rect.width * Mathf.Clamp01(current / maximum), rect.height), fillColor);
-        DrawRect(new Rect(rect.x, rect.y, rect.width, 1), panelLine);
-        DrawRect(new Rect(rect.x, rect.yMax - 1, rect.width, 1), panelLine);
+        DrawDivider(rect.x, rect.y, rect.width);
+        DrawDivider(rect.x, rect.yMax - 1, rect.width);
     }
 
     private int ExperienceToNext() => 16 + level * 9;
@@ -1791,10 +1799,10 @@ public class DungeonPrototype : MonoBehaviour
                 return true;
             }
 
-            foreach (Vector2Int direction in CardinalDirections())
+            foreach (Vector2Int direction in CardinalDirections)
             {
                 Vector2Int candidate = current + direction;
-                if (InBounds(candidate) && dungeon[candidate.x, candidate.y] != Cell.Wall && visited.Add(candidate)) queue.Enqueue(candidate);
+                if (!IsWall(candidate) && visited.Add(candidate)) queue.Enqueue(candidate);
             }
         }
         return false;
@@ -1818,10 +1826,10 @@ public class DungeonPrototype : MonoBehaviour
                 return true;
             }
 
-            foreach (Vector2Int direction in CardinalDirections())
+            foreach (Vector2Int direction in CardinalDirections)
             {
                 Vector2Int candidate = current + direction;
-                if (InBounds(candidate) && dungeon[candidate.x, candidate.y] != Cell.Wall && !previous.ContainsKey(candidate))
+                if (!IsWall(candidate) && !previous.ContainsKey(candidate))
                 {
                     previous[candidate] = current;
                     queue.Enqueue(candidate);
@@ -1829,14 +1837,6 @@ public class DungeonPrototype : MonoBehaviour
             }
         }
         return false;
-    }
-
-    private IEnumerable<Vector2Int> CardinalDirections()
-    {
-        yield return Vector2Int.up;
-        yield return Vector2Int.right;
-        yield return Vector2Int.down;
-        yield return Vector2Int.left;
     }
 
     private void SaveRun()
@@ -1907,7 +1907,7 @@ public class DungeonPrototype : MonoBehaviour
         SelectMap(savedMapIndex);
         BuildDungeon();
         Vector2Int savedPlayer = new Vector2Int(snapshot.PlayerX, snapshot.PlayerY);
-        if (!InBounds(savedPlayer) || dungeon[savedPlayer.x, savedPlayer.y] == Cell.Wall)
+        if (IsWall(savedPlayer))
         {
             failure = "保存された位置が現在の迷宮に存在しません。";
             return false;
@@ -2053,11 +2053,11 @@ public class DungeonPrototype : MonoBehaviour
         string fastest = fastestClear > 0 ? fastestClear + " 歩" : "未記録";
         GUI.Label(new Rect(box.x + 34 * s, box.y + 99 * s, box.width - 68 * s, 22 * s), $"総ゴールド {totalGoldEarned}　討伐 {totalEnemiesDefeated}　総歩数 {totalStepsTaken}　最短 {fastest}", smallStyle);
         GUI.Label(new Rect(box.x + 42 * s, box.y + 132 * s, box.width - 84 * s, 28 * s), "勲章は冒険の節目で永久に記録されます。", smallStyle);
-        string moon = (achievements & MoonbearerAchievement) != 0 ? "✓ 月の帰還者 — 迷宮を踏破する" : "○ 月の帰還者 — 迷宮を踏破する";
-        string map = (achievements & CartographerAchievement) != 0 ? "✓ 迷宮の地図師 — すべての通路を記録する" : "○ 迷宮の地図師 — すべての通路を記録する";
-        string veteran = (achievements & VeteranAchievement) != 0 ? "✓ 迷宮の征服者 — 4体の敵を倒す" : "○ 迷宮の征服者 — 4体の敵を倒す";
-        string swift = (achievements & SwiftAchievement) != 0 ? "✓ 迅き月影 — 150歩以内で踏破する" : "○ 迅き月影 — 150歩以内で踏破する";
-        string wayfinder = (achievements & WayfinderAchievement) != 0 ? "✓ 深淵の道標 — 3つの迷宮をすべて踏破する" : "○ 深淵の道標 — 3つの迷宮をすべて踏破する";
+        string moon = ((achievements & MoonbearerAchievement) != 0 ? "✓ " : "○ ") + "月の帰還者 — 迷宮を踏破する";
+        string map = ((achievements & CartographerAchievement) != 0 ? "✓ " : "○ ") + "迷宮の地図師 — すべての通路を記録する";
+        string veteran = ((achievements & VeteranAchievement) != 0 ? "✓ " : "○ ") + "迷宮の征服者 — 4体の敵を倒す";
+        string swift = ((achievements & SwiftAchievement) != 0 ? "✓ " : "○ ") + "迅き月影 — 150歩以内で踏破する";
+        string wayfinder = ((achievements & WayfinderAchievement) != 0 ? "✓ " : "○ ") + "深淵の道標 — 3つの迷宮をすべて踏破する";
         GUI.Label(new Rect(box.x + 42 * s, box.y + 170 * s, box.width - 84 * s, 23 * s), moon, labelStyle);
         GUI.Label(new Rect(box.x + 42 * s, box.y + 197 * s, box.width - 84 * s, 23 * s), map, labelStyle);
         GUI.Label(new Rect(box.x + 42 * s, box.y + 224 * s, box.width - 84 * s, 23 * s), veteran, labelStyle);
@@ -2195,24 +2195,21 @@ public class DungeonPrototype : MonoBehaviour
         if (GUI.Button(new Rect(controlX, rowY, controlW, controlH), fullscreen ? "全画面" : "ウィンドウ", buttonStyle))
         {
             fullscreen = !fullscreen;
-            ApplyDisplaySettings();
-            SaveSettings();
+            ApplyAndSaveDisplaySettings();
         }
         rowY += rowStep;
         GUI.Label(new Rect(rowX, rowY, rowW * .5f, controlH), "解像度", labelStyle);
         if (GUI.Button(new Rect(controlX, rowY, controlW, controlH), $"{DisplayResolutions[resolutionIndex].x} × {DisplayResolutions[resolutionIndex].y}", buttonStyle))
         {
             resolutionIndex = (resolutionIndex + 1) % DisplayResolutions.Length;
-            ApplyDisplaySettings();
-            SaveSettings();
+            ApplyAndSaveDisplaySettings();
         }
         rowY += rowStep;
         GUI.Label(new Rect(rowX, rowY, rowW * .5f, controlH), "垂直同期", labelStyle);
         if (GUI.Button(new Rect(controlX, rowY, controlW, controlH), vSync ? "有効" : "無効", buttonStyle))
         {
             vSync = !vSync;
-            ApplyDisplaySettings();
-            SaveSettings();
+            ApplyAndSaveDisplaySettings();
         }
         GUI.Label(new Rect(box.x, box.yMax - 72 * s, box.width, 20 * s), "設定は次回起動時にも保持されます", smallStyle);
         if (GUI.Button(new Rect(box.x + box.width * .12f, box.yMax - 48 * s, box.width * .34f, 34 * s), "操作設定", buttonStyle))
@@ -2480,8 +2477,8 @@ public class DungeonPrototype : MonoBehaviour
     private void DrawPanel(Rect rect)
     {
         DrawRect(rect, panel);
-        DrawRect(new Rect(rect.x, rect.y, rect.width, 1), panelLine);
-        DrawRect(new Rect(rect.x, rect.yMax - 1, rect.width, 1), panelLine);
+        DrawDivider(rect.x, rect.y, rect.width);
+        DrawDivider(rect.x, rect.yMax - 1, rect.width);
         DrawRect(new Rect(rect.x, rect.y, 1, rect.height), panelLine);
         DrawRect(new Rect(rect.xMax - 1, rect.y, 1, rect.height), panelLine);
     }

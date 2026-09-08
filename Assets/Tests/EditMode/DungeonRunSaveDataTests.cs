@@ -51,7 +51,7 @@ public class DungeonRunSaveDataTests
     [Test]
     public void MalformedSnapshot_ReturnsARecoveryMessage()
     {
-        Assert.That(DungeonRunSaveData.TryDeserialize("1,2,broken|1|0|0", out _, out string failure), Is.False);
+        Assert.That(DungeonRunSaveData.TryDeserialize("1,2,broken,0,1,2,8,20|1|0|0", out _, out string failure), Is.False);
         Assert.That(failure, Is.EqualTo("保存データに不正な数値が含まれています。"));
     }
 }

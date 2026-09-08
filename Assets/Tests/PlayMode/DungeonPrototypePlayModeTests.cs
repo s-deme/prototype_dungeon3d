@@ -79,6 +79,44 @@ public class DungeonPrototypePlayModeTests
         InvokePrivate(prototype, "TryMove", Vector2Int.right);
         Assert.That((Vector2Int)GetPrivateField(prototype, "player"), Is.EqualTo(initialPosition + Vector2Int.right));
         Assert.That((Vector2Int)GetPrivateField(prototype, "facing"), Is.EqualTo(Vector2Int.right));
+
+        string[] resetFlags = { "opened", "defeatedEncounters" };
+        foreach (string name in resetFlags) ((bool[,])GetPrivateField(prototype, name))[1, 1] = true;
+        InvokePrivate(prototype, "ResetRun", false);
+        foreach (string name in resetFlags)
+            foreach (bool flag in (bool[,])GetPrivateField(prototype, name)) Assert.That(flag, Is.False, name);
+
+        string savedRun = PlayerPrefs.GetString("arcane-depths-save-v1");
+        Assert.That(savedRun, Is.Not.Empty);
+        InvokePrivate(prototype, "StartDailyRun");
+        Assert.That((bool)GetPrivateField(prototype, "restartAsDaily"), Is.True);
+        Assert.That((bool)GetPrivateField(prototype, "showRestartConfirm"), Is.True);
+        Assert.That(PlayerPrefs.GetString("arcane-depths-save-v1"), Is.EqualTo(savedRun));
+        InvokePrivate(prototype, "StartNewRun");
+        Assert.That((bool)GetPrivateField(prototype, "restartAsDaily"), Is.False);
+        Assert.That((bool)GetPrivateField(prototype, "showRestartConfirm"), Is.True);
+        Assert.That(PlayerPrefs.GetString("arcane-depths-save-v1"), Is.EqualTo(savedRun));
+
+        var originalDungeon = (System.Array)GetPrivateField(prototype, "dungeon");
+        var originalPlayer = (Vector2Int)GetPrivateField(prototype, "player");
+        System.Type cellType = originalDungeon.GetType().GetElementType();
+        System.Array testDungeon = System.Array.CreateInstance(cellType, originalDungeon.GetLength(0), originalDungeon.GetLength(1));
+        object floor = System.Enum.Parse(cellType, "Floor");
+        for (int y = 1; y <= 2; y++)
+            for (int x = 1; x <= 2; x++) testDungeon.SetValue(floor, x, y);
+        try
+        {
+            SetPrivateField(prototype, "dungeon", testDungeon);
+            SetPrivateField(prototype, "player", new Vector2Int(1, 1));
+            object[] arguments = { new Vector2Int(2, 2), default(Vector2Int) };
+            Assert.That((bool)InvokePrivate(prototype, "TryFindNextStep", arguments), Is.True);
+            Assert.That((Vector2Int)arguments[1], Is.EqualTo(new Vector2Int(1, 2)));
+        }
+        finally
+        {
+            SetPrivateField(prototype, "dungeon", originalDungeon);
+            SetPrivateField(prototype, "player", originalPlayer);
+        }
     }
 
     [Test]
@@ -100,11 +138,18 @@ public class DungeonPrototypePlayModeTests
         return field.GetValue(target);
     }
 
-    private static void InvokePrivate(object target, string name, params object[] arguments)
+    private static void SetPrivateField(object target, string name, object value)
+    {
+        FieldInfo field = target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.That(field, Is.Not.Null, "Missing private field: " + name);
+        field.SetValue(target, value);
+    }
+
+    private static object InvokePrivate(object target, string name, params object[] arguments)
     {
         MethodInfo method = target.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.That(method, Is.Not.Null, "Missing private method: " + name);
-        method.Invoke(target, arguments);
+        return method.Invoke(target, arguments);
     }
 
     private static object InvokePrivateStatic(System.Type type, string name, params object[] arguments)

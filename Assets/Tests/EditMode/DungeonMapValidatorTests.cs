@@ -74,4 +74,20 @@ public class DungeonMapValidatorTests
 
         Assert.DoesNotThrow(() => DungeonMapValidator.ValidateOrThrow(alternate));
     }
+
+    [Test]
+    public void ReachableExitWithUnreachableRelic_IsRejected()
+    {
+        string[] invalid =
+        {
+            "#########",
+            "#S.C.C>.#",
+            "#########",
+            "#C......#",
+            "#########"
+        };
+
+        ArgumentException error = Assert.Throws<ArgumentException>(() => DungeonMapValidator.ValidateOrThrow(invalid));
+        StringAssert.Contains("Every relic chest must be reachable", error.Message);
+    }
 }
