@@ -1,0 +1,9 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Verified non-secret test token or PlayerPrefs identifier"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^Assets/Scripts/DungeonPrototype\.cs''']
+regexes = ['''^arcane\-depths\-save\-v1$''']
