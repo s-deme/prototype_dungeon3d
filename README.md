@@ -34,3 +34,6 @@
 ## データとライセンス
 
 ゲームコードは保存データを外部送信しません。詳しくは [`PRIVACY.md`](PRIVACY.md)、コードと第三者コンポーネントの扱いは [`LICENSE`](LICENSE) と [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) を参照してください。
+
+
+Unity Personal CI authentication requires repository Actions secrets UNITY_LICENSE, UNITY_EMAIL, and UNITY_PASSWORD. Register them through GitHub Settings / Secrets and variables / Actions using the existing licensed Unity account; never put their values in Git or chat. Follow https://game.ci/docs/github/activation/. Missing credentials leave Unity CI unverified.
